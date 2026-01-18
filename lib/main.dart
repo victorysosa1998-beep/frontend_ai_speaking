@@ -8,7 +8,12 @@ import 'package:permission_handler/permission_handler.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Permission.microphone.request();
-  runApp(const MaterialApp(debugShowCheckedModeBanner: false, home: SelectionScreen()));
+  runApp(
+    const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: SelectionScreen(),
+    ),
+  );
 }
 
 // =================== SELECTION SCREEN ===================
@@ -39,10 +44,18 @@ class _SelectionScreenState extends State<SelectionScreen> {
           children: [
             const Icon(Icons.auto_awesome, color: Colors.blueAccent, size: 50),
             const SizedBox(height: 20),
-            const Text("Gist Partner",
-                style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
-            const Text("Choose your AI companion",
-                style: TextStyle(color: Colors.white54)),
+            const Text(
+              "Gist Partner",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 36,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const Text(
+              "Choose your AI companion",
+              style: TextStyle(color: Colors.white54),
+            ),
             const SizedBox(height: 60),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -56,16 +69,27 @@ class _SelectionScreenState extends State<SelectionScreen> {
             GestureDetector(
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => CallScreen(voice: _selectedVoice)),
+                MaterialPageRoute(
+                  builder: (_) => CallScreen(voice: _selectedVoice),
+                ),
               ),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 18),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 60,
+                  vertical: 18,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.blueAccent,
                   borderRadius: BorderRadius.circular(40),
                 ),
-                child: const Text("START GISTING",
-                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                child: const Text(
+                  "START GISTING",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           ],
@@ -87,14 +111,24 @@ class _SelectionScreenState extends State<SelectionScreen> {
               : Colors.white.withOpacity(0.03),
           borderRadius: BorderRadius.circular(30),
           border: Border.all(
-              color: isSelected ? Colors.blueAccent : Colors.white10, width: 2),
+            color: isSelected ? Colors.blueAccent : Colors.white10,
+            width: 2,
+          ),
         ),
         child: Column(
           children: [
-            Icon(icon, size: 60, color: isSelected ? Colors.blueAccent : Colors.white24),
+            Icon(
+              icon,
+              size: 60,
+              color: isSelected ? Colors.blueAccent : Colors.white24,
+            ),
             const SizedBox(height: 15),
-            Text(name,
-                style: TextStyle(color: isSelected ? Colors.white : Colors.white24)),
+            Text(
+              name,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.white24,
+              ),
+            ),
           ],
         ),
       ),
@@ -113,6 +147,7 @@ class CallScreen extends StatefulWidget {
 
 class _CallScreenState extends State<CallScreen> {
   Room? _room;
+  EventsListener<RoomEvent>? _listener; // Store listener to dispose it properly
   bool _isConnected = false;
   bool _isMuted = false;
   bool _isSpeakerOn = true;
@@ -123,7 +158,6 @@ class _CallScreenState extends State<CallScreen> {
   Timer? _durationTimer;
   int _seconds = 0;
 
-  // Transcript state
   String _lastTranscript = "Waiting for gist...";
 
   @override
@@ -134,41 +168,45 @@ class _CallScreenState extends State<CallScreen> {
 
   Future<void> _connect() async {
     try {
+      // 1. Fetch Token from your Backend IP
       final res = await http.get(
-        Uri.parse("http://192.168.236.157:8000/get_token?gender=${widget.voice}"),
+        Uri.parse(
+          "http://192.168.236.157:8000/get_token?gender=${widget.voice}",
+        ),
       );
       final data = jsonDecode(res.body);
       final String token = data["token"];
 
       _room = Room();
+      _listener = _room!.createListener();
 
-      final listener = _room!.createListener();
-
-      // Listen for AI Audio
-      listener.on<TrackSubscribedEvent>((event) {
-        if (event.track is RemoteAudioTrack) {
-          event.track.start();
-        }
-      });
-
-      // ✅ Handle Data Packets (Transcripts) from Backend
-      listener.on<DataReceivedEvent>((event) {
-        final text = utf8.decode(event.data);
-        setState(() {
-          if (event.topic == "transcript:user") {
-            _lastTranscript = "You: $text";
-          } else if (event.topic == "transcript:ai") {
-            _lastTranscript = "AI: $text";
+      // 2. Setup Events
+      _listener!
+        ..on<TrackSubscribedEvent>((event) {
+          if (event.track is RemoteAudioTrack) {
+            // Automatically start playing the AI voice when it arrives
+            event.track.start();
           }
+        })
+        ..on<DataReceivedEvent>((event) {
+          final text = utf8.decode(event.data);
+          setState(() {
+            if (event.topic == "transcript:user") {
+              _lastTranscript = "You: $text";
+            } else if (event.topic == "transcript:ai") {
+              _lastTranscript = "AI: $text";
+            }
+          });
         });
-      });
 
-      // ✅ Using the token provided by backend (which contains the room info)
+      // 3. Connect to LiveKit Cloud
       await _room!.connect(
         "wss://key-5d1ldsh2.livekit.cloud",
         token,
+        roomOptions: const RoomOptions(adaptiveStream: true),
       );
 
+      // 4. Enable Mic & Speaker
       await _room!.localParticipant?.setMicrophoneEnabled(true);
       await _room!.setSpeakerOn(true);
 
@@ -181,10 +219,12 @@ class _CallScreenState extends State<CallScreen> {
   }
 
   void _startTimers() {
-    _statsTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
-      if (_room == null) return;
+    _statsTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      if (_room == null || !mounted) return;
       setState(() {
         _userLevel = _room!.localParticipant?.audioLevel ?? 0;
+
+        // Find the AI participant to show their volume wave
         final remote = _room!.remoteParticipants.values.isNotEmpty
             ? _room!.remoteParticipants.values.first
             : null;
@@ -192,8 +232,9 @@ class _CallScreenState extends State<CallScreen> {
       });
     });
 
-    _durationTimer =
-        Timer.periodic(const Duration(seconds: 1), (_) => setState(() => _seconds++));
+    _durationTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _seconds++);
+    });
   }
 
   String _time() =>
@@ -203,6 +244,7 @@ class _CallScreenState extends State<CallScreen> {
   void dispose() {
     _statsTimer?.cancel();
     _durationTimer?.cancel();
+    _listener?.dispose(); // Clean up listener
     _room?.disconnect();
     _room?.dispose();
     super.dispose();
@@ -216,10 +258,14 @@ class _CallScreenState extends State<CallScreen> {
         child: Column(
           children: [
             const SizedBox(height: 20),
-            Text(_isConnected ? _time() : "Connecting...",
-                style: const TextStyle(color: Colors.white54, fontFamily: 'monospace')),
-            
-            // ✅ Transcript Display Area
+            Text(
+              _isConnected ? _time() : "Connecting...",
+              style: const TextStyle(
+                color: Colors.white54,
+                fontFamily: 'monospace',
+              ),
+            ),
+
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
               child: Container(
@@ -231,27 +277,45 @@ class _CallScreenState extends State<CallScreen> {
                 child: Text(
                   _lastTranscript,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white70, fontSize: 16, fontStyle: FontStyle.italic),
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 16,
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
               ),
             ),
-            
+
             const Spacer(),
-            Text(widget.voice == "male" ? "Brother AI" : "Sister AI",
-                style: const TextStyle(
-                    color: Colors.blueAccent, fontSize: 28, fontWeight: FontWeight.bold)),
+            Text(
+              widget.voice == "male" ? "Brother AI" : "Sister AI",
+              style: const TextStyle(
+                color: Colors.blueAccent,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 30),
             WaveWidget(level: _aiLevel, color: Colors.blueAccent),
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 40),
               child: Icon(Icons.swap_vert, color: Colors.white10),
             ),
-            WaveWidget(level: _isMuted ? 0 : _userLevel, color: Colors.greenAccent),
+            WaveWidget(
+              level: _isMuted ? 0 : _userLevel,
+              color: Colors.greenAccent,
+            ),
             const SizedBox(height: 20),
-            Text(_isMuted ? "MIC MUTED" : "YOU ARE SPEAKING",
-                style: TextStyle(color: _isMuted ? Colors.red : Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+            Text(
+              _isMuted ? "MIC MUTED" : "YOU ARE SPEAKING",
+              style: TextStyle(
+                color: _isMuted ? Colors.red : Colors.green,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
             const Spacer(),
-            
+
             Padding(
               padding: const EdgeInsets.only(bottom: 40),
               child: Row(
@@ -259,9 +323,16 @@ class _CallScreenState extends State<CallScreen> {
                 children: [
                   _circle(Icons.mic, !_isMuted, () async {
                     setState(() => _isMuted = !_isMuted);
-                    await _room!.localParticipant?.setMicrophoneEnabled(!_isMuted);
+                    await _room!.localParticipant?.setMicrophoneEnabled(
+                      !_isMuted,
+                    );
                   }),
-                  _circle(Icons.call_end, false, () => Navigator.pop(context), red: true),
+                  _circle(
+                    Icons.call_end,
+                    false,
+                    () => Navigator.pop(context),
+                    red: true,
+                  ),
                   _circle(Icons.volume_up, _isSpeakerOn, () async {
                     setState(() => _isSpeakerOn = !_isSpeakerOn);
                     await _room!.setSpeakerOn(_isSpeakerOn);
@@ -275,14 +346,21 @@ class _CallScreenState extends State<CallScreen> {
     );
   }
 
-  Widget _circle(IconData icon, bool active, VoidCallback onTap, {bool red = false}) {
+  Widget _circle(
+    IconData icon,
+    bool active,
+    VoidCallback onTap, {
+    bool red = false,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: red ? Colors.red : (active ? Colors.white12 : Colors.red.withOpacity(0.2)),
+          color: red
+              ? Colors.red
+              : (active ? Colors.white12 : Colors.red.withOpacity(0.2)),
           border: Border.all(color: red ? Colors.transparent : Colors.white10),
         ),
         child: Icon(icon, color: Colors.white, size: 28),
@@ -302,13 +380,17 @@ class WaveWidget extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(13, (i) {
-        final h = 8 + (level * 70 * (1 - (i - 6).abs() / 7));
+        // Boosted scale for the audio waves
+        final h = 8 + (level * 100 * (1 - (i - 6).abs() / 7));
         return AnimatedContainer(
-          duration: const Duration(milliseconds: 50),
+          duration: const Duration(milliseconds: 100),
           margin: const EdgeInsets.symmetric(horizontal: 3),
           width: 5,
-          height: h,
-          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
+          height: h.clamp(8.0, 80.0), // Keep it within screen limits
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(10),
+          ),
         );
       }),
     );
