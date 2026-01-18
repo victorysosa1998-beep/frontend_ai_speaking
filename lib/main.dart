@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Ensure mic permission is granted before starting
   await Permission.microphone.request();
   runApp(
     const MaterialApp(
@@ -74,10 +75,7 @@ class _SelectionScreenState extends State<SelectionScreen> {
                 ),
               ),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 60,
-                  vertical: 18,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 18),
                 decoration: BoxDecoration(
                   color: Colors.blueAccent,
                   borderRadius: BorderRadius.circular(40),
@@ -147,7 +145,7 @@ class CallScreen extends StatefulWidget {
 
 class _CallScreenState extends State<CallScreen> {
   Room? _room;
-  EventsListener<RoomEvent>? _listener; // Store listener to dispose it properly
+  EventsListener<RoomEvent>? _listener;
   bool _isConnected = false;
   bool _isMuted = false;
   bool _isSpeakerOn = true;
@@ -158,7 +156,7 @@ class _CallScreenState extends State<CallScreen> {
   Timer? _durationTimer;
   int _seconds = 0;
 
-  String _lastTranscript = "Waiting for gist...";
+  String _lastTranscript = "Connecting to Gist Partner...";
 
   @override
   void initState() {
@@ -168,12 +166,11 @@ class _CallScreenState extends State<CallScreen> {
 
   Future<void> _connect() async {
     try {
-      // 1. Fetch Token from your Backend IP
+      // 1. Fetch Token (Verify your IP address is correct)
       final res = await http.get(
-        Uri.parse(
-          "http://192.168.236.157:8000/get_token?gender=${widget.voice}",
-        ),
-      );
+        Uri.parse("http://192.168.236.157:8000/get_token?gender=${widget.voice}"),
+      ).timeout(const Duration(seconds: 15));
+
       final data = jsonDecode(res.body);
       final String token = data["token"];
 
@@ -184,9 +181,12 @@ class _CallScreenState extends State<CallScreen> {
       _listener!
         ..on<TrackSubscribedEvent>((event) {
           if (event.track is RemoteAudioTrack) {
-            // Automatically start playing the AI voice when it arrives
-            event.track.start();
+            print("🔊 AI audio track received");
+            event.track.start(); 
           }
+        })
+        ..on<ParticipantConnectedEvent>((event) {
+          setState(() => _lastTranscript = "Partner joined! Say hello.");
         })
         ..on<DataReceivedEvent>((event) {
           final text = utf8.decode(event.data);
@@ -197,24 +197,41 @@ class _CallScreenState extends State<CallScreen> {
               _lastTranscript = "AI: $text";
             }
           });
+        })
+        ..on<RoomDisconnectedEvent>((event) {
+          if (mounted) Navigator.pop(context);
         });
 
-      // 3. Connect to LiveKit Cloud
+      // 3. Connect to LiveKit
+      // We set the default publishing options here instead of setMicrophoneEnabled
       await _room!.connect(
         "wss://key-5d1ldsh2.livekit.cloud",
         token,
-        roomOptions: const RoomOptions(adaptiveStream: true),
+        roomOptions: const RoomOptions(
+          adaptiveStream: true,
+          defaultAudioPublishOptions: AudioPublishOptions(
+            dtx: true,
+          ),
+        ),
       );
 
-      // 4. Enable Mic & Speaker
+      // 4. Start Microphone
       await _room!.localParticipant?.setMicrophoneEnabled(true);
       await _room!.setSpeakerOn(true);
 
       _startTimers();
-      setState(() => _isConnected = true);
+      setState(() {
+        _isConnected = true;
+        _lastTranscript = "Listening...";
+      });
     } catch (e) {
-      debugPrint("Connection error: $e");
-      if (mounted) Navigator.pop(context);
+      debugPrint("❌ Connection error: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Connection error: $e")),
+        );
+        Navigator.pop(context);
+      }
     }
   }
 
@@ -223,8 +240,6 @@ class _CallScreenState extends State<CallScreen> {
       if (_room == null || !mounted) return;
       setState(() {
         _userLevel = _room!.localParticipant?.audioLevel ?? 0;
-
-        // Find the AI participant to show their volume wave
         final remote = _room!.remoteParticipants.values.isNotEmpty
             ? _room!.remoteParticipants.values.first
             : null;
@@ -244,7 +259,7 @@ class _CallScreenState extends State<CallScreen> {
   void dispose() {
     _statsTimer?.cancel();
     _durationTimer?.cancel();
-    _listener?.dispose(); // Clean up listener
+    _listener?.dispose();
     _room?.disconnect();
     _room?.dispose();
     super.dispose();
@@ -260,16 +275,13 @@ class _CallScreenState extends State<CallScreen> {
             const SizedBox(height: 20),
             Text(
               _isConnected ? _time() : "Connecting...",
-              style: const TextStyle(
-                color: Colors.white54,
-                fontFamily: 'monospace',
-              ),
+              style: const TextStyle(color: Colors.white54, fontFamily: 'monospace'),
             ),
-
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
               child: Container(
-                padding: const EdgeInsets.all(15),
+                padding: const EdgeInsets.all(20),
+                width: double.infinity,
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.05),
                   borderRadius: BorderRadius.circular(15),
@@ -285,7 +297,6 @@ class _CallScreenState extends State<CallScreen> {
                 ),
               ),
             ),
-
             const Spacer(),
             Text(
               widget.voice == "male" ? "Brother AI" : "Sister AI",
@@ -299,7 +310,7 @@ class _CallScreenState extends State<CallScreen> {
             WaveWidget(level: _aiLevel, color: Colors.blueAccent),
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 40),
-              child: Icon(Icons.swap_vert, color: Colors.white10),
+              child: Icon(Icons.compare_arrows, color: Colors.white10),
             ),
             WaveWidget(
               level: _isMuted ? 0 : _userLevel,
@@ -315,7 +326,6 @@ class _CallScreenState extends State<CallScreen> {
               ),
             ),
             const Spacer(),
-
             Padding(
               padding: const EdgeInsets.only(bottom: 40),
               child: Row(
@@ -323,9 +333,7 @@ class _CallScreenState extends State<CallScreen> {
                 children: [
                   _circle(Icons.mic, !_isMuted, () async {
                     setState(() => _isMuted = !_isMuted);
-                    await _room!.localParticipant?.setMicrophoneEnabled(
-                      !_isMuted,
-                    );
+                    await _room!.localParticipant?.setMicrophoneEnabled(!_isMuted);
                   }),
                   _circle(
                     Icons.call_end,
@@ -346,21 +354,14 @@ class _CallScreenState extends State<CallScreen> {
     );
   }
 
-  Widget _circle(
-    IconData icon,
-    bool active,
-    VoidCallback onTap, {
-    bool red = false,
-  }) {
+  Widget _circle(IconData icon, bool active, VoidCallback onTap, {bool red = false}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: red
-              ? Colors.red
-              : (active ? Colors.white12 : Colors.red.withOpacity(0.2)),
+          color: red ? Colors.red : (active ? Colors.white12 : Colors.red.withOpacity(0.2)),
           border: Border.all(color: red ? Colors.transparent : Colors.white10),
         ),
         child: Icon(icon, color: Colors.white, size: 28),
@@ -380,15 +381,14 @@ class WaveWidget extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(13, (i) {
-        // Boosted scale for the audio waves
-        final h = 8 + (level * 100 * (1 - (i - 6).abs() / 7));
+        final h = 8 + (level * 120 * (1 - (i - 6).abs() / 7));
         return AnimatedContainer(
           duration: const Duration(milliseconds: 100),
           margin: const EdgeInsets.symmetric(horizontal: 3),
-          width: 5,
-          height: h.clamp(8.0, 80.0), // Keep it within screen limits
+          width: 6,
+          height: h.clamp(8.0, 100.0),
           decoration: BoxDecoration(
-            color: color,
+            color: color.withOpacity((h / 100).clamp(0.3, 1.0)),
             borderRadius: BorderRadius.circular(10),
           ),
         );
