@@ -61,14 +61,26 @@ class _VoiceSelectionScreenState extends State<VoiceSelectionScreen>
             ),
             const SizedBox(height: 50),
 
+            // Gender selection row
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _partnerCard("Brother", "male", Icons.face_retouching_natural),
+                _genderCard(
+                  "Buddy",
+                  "male",
+                  'assets/images/buddy.png',
+                  Colors.blue,
+                ),
                 const SizedBox(width: 25),
-                _partnerCard("Sister", "female", Icons.face_6),
+                _genderCard(
+                  "Missy",
+                  "female",
+                  'assets/images/missy.png',
+                  const Color.fromARGB(255, 189, 81, 117),
+                ),
               ],
             ),
+
             const SizedBox(height: 80),
 
             ScaleTransition(
@@ -104,9 +116,19 @@ class _VoiceSelectionScreenState extends State<VoiceSelectionScreen>
                     vertical: 13,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.blueAccent,
                     borderRadius: BorderRadius.circular(40),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white,
+                        Colors.blueAccent,
+                        Colors.purpleAccent,
+                        Colors.blueAccent,
+                      ],
+                    ),
                   ),
+
                   child: const Text(
                     "NEXT",
                     style: TextStyle(
@@ -124,6 +146,89 @@ class _VoiceSelectionScreenState extends State<VoiceSelectionScreen>
     );
   }
 
+  // ----------------- Gender Card -----------------
+  Widget _genderCard(
+    String name,
+    String gender,
+    String assetPath,
+    Color borderColor,
+  ) {
+    bool isSelected = _selectedVoice == gender;
+
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        setState(() {
+          _selectedVoice = gender;
+        });
+      },
+      child: Opacity(
+        opacity: isSelected ? 1.0 : 0.5,
+        child: _partnerCardImage(
+          name,
+          gender,
+          assetPath,
+          borderColor,
+          isSelected,
+        ),
+      ),
+    );
+  }
+
+  // ----------------- Partner Card with Image -----------------
+  Widget _partnerCardImage(
+    String name,
+    String value,
+    String assetPath,
+    Color borderColor,
+    bool isSelected,
+  ) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isSelected
+            ? Colors.blueAccent.withOpacity(0.15)
+            : Colors.white.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(
+          color: isSelected ? borderColor : Colors.transparent,
+          width: 2,
+        ),
+      ),
+      child: Column(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected ? borderColor : Colors.transparent,
+                width: 3,
+              ),
+            ),
+            child: ClipOval(
+              child: Image.asset(
+                assetPath,
+                width: 60,
+                height: 60,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          const SizedBox(height: 15),
+          Text(
+            name,
+            style: TextStyle(
+              color: isSelected ? Colors.white : Colors.white24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ----------------- Original PartnerCard (optional, keep for icon version) -----------------
   Widget _partnerCard(String name, String value, IconData icon) {
     final isSelected = _selectedVoice == value;
     return GestureDetector(

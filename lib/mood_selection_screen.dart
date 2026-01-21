@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'call_screen.dart';
+import 'SympyChatPage.dart'; // Ensure this import is correct
 
 class MoodSelectionScreen extends StatefulWidget {
   final String selectedVoice;
@@ -48,7 +48,7 @@ class _MoodSelectionScreenState extends State<MoodSelectionScreen>
             const Icon(Icons.auto_awesome, color: Colors.blueAccent, size: 50),
             const SizedBox(height: 10),
             const Text(
-              "Gist Partner",
+              "Sympy",
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 36,
@@ -76,7 +76,10 @@ class _MoodSelectionScreenState extends State<MoodSelectionScreen>
             const SizedBox(height: 80),
             ScaleTransition(
               scale: Tween<double>(begin: 1.0, end: 1.05).animate(
-                CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+                CurvedAnimation(
+                  parent: _pulseController,
+                  curve: Curves.easeInOut,
+                ),
               ),
               child: GestureDetector(
                 onTap: () {
@@ -84,7 +87,7 @@ class _MoodSelectionScreenState extends State<MoodSelectionScreen>
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => CallScreen(
+                      builder: (_) => SympyChatPage(
                         voice: widget.selectedVoice,
                         vibe: _selectedVibe,
                       ),
@@ -92,18 +95,30 @@ class _MoodSelectionScreenState extends State<MoodSelectionScreen>
                   );
                 },
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 60, vertical: 18),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 50,
+                    vertical: 14,
+                  ),
                   decoration: BoxDecoration(
-                    color: Colors.blueAccent,
                     borderRadius: BorderRadius.circular(40),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white,
+                        Colors.blueAccent,
+                        Colors.purpleAccent,
+                        Colors.blueAccent,
+                      ],
+                    ),
                   ),
                   child: const Text(
-                    "START GISTING",
+                    "Get on Board",
                     style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold),
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
