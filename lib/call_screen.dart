@@ -17,7 +17,7 @@ class _CallScreenState extends State<CallScreen> {
   EventsListener<RoomEvent>? _listener;
   bool _isConnected = false;
   bool _isMuted = false;
-  bool _isSpeakerOn = true; // Set to true by default for better AI audibility
+  bool _isSpeakerOn = false; // ✅ Changed to false for earpiece by default
   double _userLevel = 0;
   double _aiLevel = 0;
   Timer? _statsTimer;
@@ -70,12 +70,11 @@ class _CallScreenState extends State<CallScreen> {
     try {
       _log("HTTP", "Requesting token from server...");
 
-      // FIX: Ensure your phone can reach this IP.
-      // If using Emulator, use 10.0.2.2. If on real phone, ensure both are on the same WiFi.
+      // Using your current IP from previous conversation
       final res = await http
           .get(
             Uri.parse(
-              "http://192.168.102.157:8000/get_token?gender=${widget.voice}&vibe=${widget.vibe}",
+              "http://192.168.124.157:8000/get_token?gender=${widget.voice}&vibe=${widget.vibe}",
             ),
           )
           .timeout(const Duration(seconds: 15));
@@ -124,7 +123,6 @@ class _CallScreenState extends State<CallScreen> {
 
       _log("LiveKit", "Connecting to wss://key-5d1ldsh2.livekit.cloud");
 
-      // Connect options to ensure faster audio start
       await _room!.connect(
         "wss://key-5d1ldsh2.livekit.cloud",
         token,
@@ -133,6 +131,8 @@ class _CallScreenState extends State<CallScreen> {
 
       await _room!.startAudio();
       await _room!.localParticipant?.setMicrophoneEnabled(true);
+
+      // ✅ Set speaker state explicitly upon connection
       await _room!.setSpeakerOn(_isSpeakerOn);
 
       _startTimers();
