@@ -97,7 +97,7 @@ class _VoiceSelectionScreenState extends State<VoiceSelectionScreen>
                     context,
                     PageRouteBuilder(
                       pageBuilder: (_, __, ___) =>
-                          MoodSelectionScreen(selectedVoice: _selectedVoice),
+                          MoodSelectionScreen(_selectedVoice, selectedVoice: '',),
                       transitionsBuilder: (_, animation, __, child) {
                         return SlideTransition(
                           position: Tween<Offset>(

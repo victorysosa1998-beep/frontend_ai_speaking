@@ -1,13 +1,16 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:livekit_client/livekit_client.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'dart:async';
+import 'package:headphones_detection/headphones_detection.dart';
 
 class CallScreen extends StatefulWidget {
   final String voice;
   final String vibe;
   const CallScreen({super.key, required this.voice, required this.vibe});
+
   @override
   State<CallScreen> createState() => _CallScreenState();
 }
@@ -17,7 +20,7 @@ class _CallScreenState extends State<CallScreen> {
   EventsListener<RoomEvent>? _listener;
   bool _isConnected = false;
   bool _isMuted = false;
-  bool _isSpeakerOn = false; // ✅ Changed to false for earpiece by default
+  bool _isSpeakerOn = false; // loudspeaker toggle (works as before)
   double _userLevel = 0;
   double _aiLevel = 0;
   Timer? _statsTimer;
@@ -33,18 +36,50 @@ class _CallScreenState extends State<CallScreen> {
   int _textIndex = 0;
   Timer? _textFadeTimer;
 
+  // ✅ Headset detection
+  bool _isHeadsetConnected = false;
+
   @override
   void initState() {
     super.initState();
     _displayTexts = [
-      widget.voice == "male" ? "Brother AI" : "Sister AI",
-      "Analyzing Vibe...",
-      "Syncing Voice...",
-      "AI Assistant Ready",
-      "Secure Connection",
+      widget.voice == "male" ? "Buddy" : "Missy",
+      "Cooking up some major vibes... 🍳",
+      "Checking the street for update... 🤫",
+      "Abeg hold on, I de find words... 💭",
+      "Vibe check in progress... 🔥",
+      "Sharpening my tongue... 👅",
     ];
     _startTextRotation();
     _connect();
+    _listenHeadset(); // ✅ start headset listener
+  }
+
+  // Headset detection setup
+  void _listenHeadset() async {
+    // Initial state
+    try {
+      bool connected = await HeadphonesDetection.isHeadphonesConnected();
+      setState(() => _isHeadsetConnected = connected);
+    } catch (_) {}
+
+    // Listen for changes
+    HeadphonesDetection.headphonesStream.listen((bool connected) {
+      setState(() => _isHeadsetConnected = connected);
+      _updateAudioRouting();
+    });
+  }
+
+  void _updateAudioRouting() async {
+    if (_room == null) return;
+
+    if (_isHeadsetConnected) {
+      // ✅ Headset connected → force audio to headset, mute earpiece
+      await _room!.setSpeakerOn(false);
+    } else {
+      // ✅ No headset → use your normal loudspeaker toggle
+      await _room!.setSpeakerOn(_isSpeakerOn);
+    }
   }
 
   void _startTextRotation() {
@@ -69,18 +104,15 @@ class _CallScreenState extends State<CallScreen> {
 
     try {
       _log("HTTP", "Requesting token from server...");
-
-      // Using your current IP from previous conversation
       final res = await http
           .get(
             Uri.parse(
-              "http://192.168.124.157:8000/get_token?gender=${widget.voice}&vibe=${widget.vibe}",
+              "http://192.168.253.157:8000/get_token?gender=${widget.voice}&vibe=${widget.vibe}",
             ),
           )
           .timeout(const Duration(seconds: 15));
 
       if (res.statusCode != 200) throw "Server Error: ${res.statusCode}";
-
       final data = jsonDecode(res.body);
       final String token = data["token"];
 
@@ -90,9 +122,7 @@ class _CallScreenState extends State<CallScreen> {
       _listener!
         ..on<TrackSubscribedEvent>((event) async {
           _log("LiveKit", "Track subscribed: ${event.track.sid}");
-          if (event.track is RemoteAudioTrack) {
-            await event.track.start();
-          }
+          if (event.track is RemoteAudioTrack) await event.track.start();
         })
         ..on<TrackSubscriptionExceptionEvent>((event) {
           _log("LiveKit", "Subscription Exception: ${event.reason}");
@@ -112,9 +142,7 @@ class _CallScreenState extends State<CallScreen> {
             return;
           }
 
-          setState(() {
-            _lastTranscript = text;
-          });
+          setState(() => _lastTranscript = text);
         })
         ..on<RoomDisconnectedEvent>((event) {
           _log("LiveKit", "Disconnected.");
@@ -132,8 +160,8 @@ class _CallScreenState extends State<CallScreen> {
       await _room!.startAudio();
       await _room!.localParticipant?.setMicrophoneEnabled(true);
 
-      // ✅ Set speaker state explicitly upon connection
-      await _room!.setSpeakerOn(_isSpeakerOn);
+      // ✅ Apply audio routing after connection
+      _updateAudioRouting();
 
       _startTimers();
       if (!mounted) return;
@@ -186,8 +214,21 @@ class _CallScreenState extends State<CallScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(child: _hasError ? _buildErrorView() : _buildCallView()),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: <Color>[
+              Color.fromARGB(255, 32, 139, 227),
+              Color.fromARGB(255, 44, 11, 50),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: _hasError ? _buildErrorView() : _buildCallView(),
+        ),
+      ),
     );
   }
 
@@ -197,7 +238,7 @@ class _CallScreenState extends State<CallScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Icon(Icons.error_outline, color: Colors.redAccent, size: 80),
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
           const Text(
             "Connection Failed",
             style: TextStyle(
@@ -206,13 +247,13 @@ class _CallScreenState extends State<CallScreen> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 7),
           const Text(
-            "Ensure your PC and Phone are on the same WiFi\nand the Python script is running.",
+            "Check Your Internet connection .",
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.white54),
           ),
-          const SizedBox(height: 40),
+          const SizedBox(height: 12),
           ElevatedButton(onPressed: _connect, child: const Text("Try Again")),
           TextButton(
             onPressed: _safeExit,
@@ -267,7 +308,7 @@ class _CallScreenState extends State<CallScreen> {
                 key: ValueKey<int>(_textIndex),
                 style: const TextStyle(
                   color: Colors.blueAccent,
-                  fontSize: 28,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -275,17 +316,24 @@ class _CallScreenState extends State<CallScreen> {
             const SizedBox(height: 10),
             Text(
               "Vibe: ${widget.vibe}",
-              style: const TextStyle(color: Colors.white24, fontSize: 14),
+              style: const TextStyle(
+                color: Color.fromARGB(255, 232, 229, 229),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const SizedBox(height: 30),
-            WaveWidget(level: _aiLevel, color: Colors.blueAccent),
+            WaveWidget(
+              level: _aiLevel,
+              color: const Color.fromARGB(255, 89, 148, 249),
+            ),
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 40),
               child: Icon(Icons.compare_arrows, color: Colors.white10),
             ),
             WaveWidget(
               level: _isMuted ? 0 : _userLevel,
-              color: Colors.greenAccent,
+              color: const Color.fromARGB(255, 126, 246, 188),
             ),
             const Spacer(),
             Padding(
@@ -302,7 +350,9 @@ class _CallScreenState extends State<CallScreen> {
                   _circle(Icons.call_end, false, _safeExit, red: true),
                   _circle(Icons.volume_up, _isSpeakerOn, () async {
                     setState(() => _isSpeakerOn = !_isSpeakerOn);
-                    await _room!.setSpeakerOn(_isSpeakerOn);
+                    if (!_isHeadsetConnected) {
+                      await _room!.setSpeakerOn(_isSpeakerOn);
+                    }
                   }),
                 ],
               ),

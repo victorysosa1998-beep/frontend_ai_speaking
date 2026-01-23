@@ -4,7 +4,7 @@ import 'SympyChatPage.dart'; // Ensure this import is correct
 
 class MoodSelectionScreen extends StatefulWidget {
   final String selectedVoice;
-  const MoodSelectionScreen({super.key, required this.selectedVoice});
+  const MoodSelectionScreen(String s, {super.key, required this.selectedVoice});
   @override
   State<MoodSelectionScreen> createState() => _MoodSelectionScreenState();
 }

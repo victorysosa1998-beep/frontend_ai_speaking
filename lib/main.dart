@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:audio_session/audio_session.dart';
+import 'package:headphones_detection/headphones_detection.dart';
 import 'splashScreen.dart';
 import 'voice_selection_screen.dart';
 
@@ -28,7 +29,6 @@ void main() async {
     // Activate session
     await session.setActive(true);
   } catch (e) {
-    // Catch MissingPluginException safely
     debugPrint(
       "Audio session setup failed (ignored safely, may be emulator): $e",
     );
@@ -48,8 +48,21 @@ void main() async {
     debugPrint("Microphone permission request failed: $e");
   }
 
+  // ✅ Headset detection (initial)
+  bool isHeadsetConnected = false;
+  try {
+    isHeadsetConnected = await HeadphonesDetection.isHeadphonesConnected();
+  } catch (_) {}
+
+  // Listen for changes (optional, can use inside CallScreen)
+  HeadphonesDetection.headphonesStream.listen((bool connected) {
+    debugPrint("Headset connected: $connected");
+    // You can notify CallScreen or other widgets here if needed
+  });
+
   runApp(
     MaterialApp(
+      theme: ThemeData(iconTheme: const IconThemeData(color: Colors.white)),
       debugShowCheckedModeBanner: false,
       home: micGranted ? WelcomeScreen() : PermissionDeniedScreen(),
     ),
@@ -87,7 +100,7 @@ class PermissionDeniedScreen extends StatelessWidget {
   }
 }
 
-// Example speaker toggle button (can be added to your UI)
+// Optional: example speaker toggle button (kept unchanged)
 class SpeakerToggleButton extends StatefulWidget {
   const SpeakerToggleButton({super.key});
 
@@ -105,8 +118,6 @@ class _SpeakerToggleButtonState extends State<SpeakerToggleButton> {
       onPressed: () {
         setState(() => isSpeakerOn = !isSpeakerOn);
 
-        // ⚠️ iOS routing to speaker requires platform channel
-        // Android: flutter_webrtc or just_audio can toggle speakerphone
         debugPrint(
           "Speaker toggle pressed. Implement platform-specific routing here.",
         );
@@ -114,3 +125,4 @@ class _SpeakerToggleButtonState extends State<SpeakerToggleButton> {
     );
   }
 }
+ 

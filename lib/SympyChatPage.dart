@@ -4,10 +4,9 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'dart:ui';
 import 'dart:math';
-import 'dart:async'; // ✅ Added for proximity stream
+import 'dart:async';
 import 'package:confetti/confetti.dart';
 import 'package:animate_do/animate_do.dart';
-import 'package:proximity_sensor/proximity_sensor.dart'; // ✅ Added
 import 'call_screen.dart';
 
 class SympyChatPage extends StatefulWidget {
@@ -27,19 +26,14 @@ class _SympyChatPageState extends State<SympyChatPage> {
 
   final String apiKey = "<YOUR_TOKEN_API_KEY>";
   late final String chatEndpoint =
-      "http://192.168.124.157:8000/chat?voice=${widget.voice}&vibe=${widget.vibe}";
+      "http://192.168.253.157:8000/chat?voice=${widget.voice}&vibe=${widget.vibe}";
 
   List<({String role, String text})> messages = [];
   bool isSending = false;
 
-  // ✅ ENERGY METER / COMBO STREAK
   int comboStreak = 0;
   DateTime? lastMessageTime;
   bool comboMode = false;
-
-  // ✅ PROXIMITY SENSOR LOGIC
-  late StreamSubscription<int> _proximitySubscription;
-  bool _isNear = false;
 
   @override
   void initState() {
@@ -47,20 +41,10 @@ class _SympyChatPageState extends State<SympyChatPage> {
     _confettiController = ConfettiController(
       duration: const Duration(seconds: 2),
     );
-    _listenToProximity();
-  }
-
-  void _listenToProximity() {
-    _proximitySubscription = ProximitySensor.events.listen((int event) {
-      setState(() {
-        _isNear = (event > 0); // 1 is near, 0 is far
-      });
-    });
   }
 
   @override
   void dispose() {
-    _proximitySubscription.cancel();
     _confettiController.dispose();
     _controller.dispose();
     _scrollController.dispose();
@@ -273,7 +257,7 @@ class _SympyChatPageState extends State<SympyChatPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => CallScreen(voice: widget.voice, vibe: widget.vibe),
+        builder: (_) => CallScreen(vibe: widget.vibe, voice: widget.voice),
       ),
     );
   }
@@ -411,20 +395,27 @@ class _SympyChatPageState extends State<SympyChatPage> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        flexibleSpace: ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(color: theme.colorScheme.surface.withOpacity(0.4)),
+        iconTheme: const IconThemeData(
+          color: Colors.white,
+          size: 30,
+          weight: 700,
+        ),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: <Color>[Colors.blue, Colors.purple],
+            ),
           ),
         ),
-        title: Text("${widget.vibe} ${widget.voice}"),
+        elevation: 0,
+        title: Text(
+          "Chat with Sympy AI",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.videocam_outlined),
-            onPressed: _startCall,
-          ),
+          IconButton(icon: const Icon(Icons.phone), onPressed: _startCall),
         ],
       ),
       body: Stack(
@@ -528,20 +519,6 @@ class _SympyChatPageState extends State<SympyChatPage> {
               emissionFrequency: 0.05,
             ),
           ),
-
-          // ✅ PROXIMITY BLACKOUT (Does not change layout structure)
-          if (_isNear)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black,
-                child: const Center(
-                  child: Text(
-                    "Phone at ear...",
-                    style: TextStyle(color: Colors.white12, fontSize: 10),
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
     );
