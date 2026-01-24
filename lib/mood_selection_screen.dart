@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'SympyChatPage.dart'; // Ensure this import is correct
+import 'SympyChatPage.dart';
 
 class MoodSelectionScreen extends StatefulWidget {
   final String selectedVoice;
-  const MoodSelectionScreen(String s, {super.key, required this.selectedVoice});
+  final String imagePath; 
+  const MoodSelectionScreen({super.key, required this.selectedVoice, required this.imagePath});
   @override
   State<MoodSelectionScreen> createState() => _MoodSelectionScreenState();
 }
@@ -90,6 +91,7 @@ class _MoodSelectionScreenState extends State<MoodSelectionScreen>
                       builder: (_) => SympyChatPage(
                         voice: widget.selectedVoice,
                         vibe: _selectedVibe,
+                        imagePath: widget.imagePath,
                       ),
                     ),
                   );

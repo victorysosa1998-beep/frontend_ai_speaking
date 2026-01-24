@@ -1,16 +1,20 @@
-import 'dart:async';
-import 'dart:convert';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:livekit_client/livekit_client.dart';
 import 'package:http/http.dart' as http;
-import 'package:headphones_detection/headphones_detection.dart';
+import 'dart:convert';
+import 'dart:async';
+import 'secrets.dart'; // Linked to your secrets file
 
 class CallScreen extends StatefulWidget {
   final String voice;
   final String vibe;
-  const CallScreen({super.key, required this.voice, required this.vibe});
-
+  final String imagePath; // New field
+  const CallScreen({
+    super.key,
+    required this.voice,
+    required this.vibe,
+    required this.imagePath,
+  });
   @override
   State<CallScreen> createState() => _CallScreenState();
 }
@@ -20,7 +24,7 @@ class _CallScreenState extends State<CallScreen> {
   EventsListener<RoomEvent>? _listener;
   bool _isConnected = false;
   bool _isMuted = false;
-  bool _isSpeakerOn = false; // loudspeaker toggle (works as before)
+  bool _isSpeakerOn = false;
   double _userLevel = 0;
   double _aiLevel = 0;
   Timer? _statsTimer;
@@ -36,50 +40,21 @@ class _CallScreenState extends State<CallScreen> {
   int _textIndex = 0;
   Timer? _textFadeTimer;
 
-  // ✅ Headset detection
-  bool _isHeadsetConnected = false;
-
   @override
   void initState() {
     super.initState();
+
+    final isMale = widget.voice.toLowerCase() == "male";
     _displayTexts = [
-      widget.voice == "male" ? "Buddy" : "Missy",
+      isMale ? "Buddy" : "Missy",
       "Cooking up some major vibes... 🍳",
       "Checking the street for update... 🤫",
-      "Abeg hold on, I de find words... 💭",
-      "Vibe check in progress... 🔥",
-      "Sharpening my tongue... 👅",
+      "Abeg hold on, I dey find words... 🧐",
+      "Vibe check in progress... 🔋",
+      "Sharpening my tongue... 🔪",
     ];
     _startTextRotation();
     _connect();
-    _listenHeadset(); // ✅ start headset listener
-  }
-
-  // Headset detection setup
-  void _listenHeadset() async {
-    // Initial state
-    try {
-      bool connected = await HeadphonesDetection.isHeadphonesConnected();
-      setState(() => _isHeadsetConnected = connected);
-    } catch (_) {}
-
-    // Listen for changes
-    HeadphonesDetection.headphonesStream.listen((bool connected) {
-      setState(() => _isHeadsetConnected = connected);
-      _updateAudioRouting();
-    });
-  }
-
-  void _updateAudioRouting() async {
-    if (_room == null) return;
-
-    if (_isHeadsetConnected) {
-      // ✅ Headset connected → force audio to headset, mute earpiece
-      await _room!.setSpeakerOn(false);
-    } else {
-      // ✅ No headset → use your normal loudspeaker toggle
-      await _room!.setSpeakerOn(_isSpeakerOn);
-    }
   }
 
   void _startTextRotation() {
@@ -103,16 +78,16 @@ class _CallScreenState extends State<CallScreen> {
     });
 
     try {
-      _log("HTTP", "Requesting token from server...");
+      final url =
+          "http://192.168.253.157:8000/get_token?gender=${widget.voice.toLowerCase()}&vibe=${widget.vibe}";
+      _log("HTTP", "Requesting: $url");
+
+      // FIXED: Linked to AppSecrets.appApiKey
       final res = await http
-          .get(
-            Uri.parse(
-              "http://192.168.253.157:8000/get_token?gender=${widget.voice}&vibe=${widget.vibe}",
-            ),
-          )
+          .get(Uri.parse(url), headers: {"X-API-KEY": AppSecrets.appApiKey})
           .timeout(const Duration(seconds: 15));
 
-      if (res.statusCode != 200) throw "Server Error: ${res.statusCode}";
+      if (res.statusCode != 200) throw "API Error: ${res.statusCode}";
       final data = jsonDecode(res.body);
       final String token = data["token"];
 
@@ -121,11 +96,13 @@ class _CallScreenState extends State<CallScreen> {
 
       _listener!
         ..on<TrackSubscribedEvent>((event) async {
-          _log("LiveKit", "Track subscribed: ${event.track.sid}");
-          if (event.track is RemoteAudioTrack) await event.track.start();
+          if (event.track is RemoteAudioTrack) {
+            await event.track.start();
+            await _room!.setSpeakerOn(_isSpeakerOn);
+          }
         })
         ..on<TrackSubscriptionExceptionEvent>((event) {
-          _log("LiveKit", "Subscription Exception: ${event.reason}");
+          if (mounted) setState(() => _hasError = true);
         })
         ..on<AudioPlaybackStatusChanged>((event) async {
           if (!_room!.canPlaybackAudio) await _room!.startAudio();
@@ -133,7 +110,6 @@ class _CallScreenState extends State<CallScreen> {
         ..on<DataReceivedEvent>((event) {
           final text = utf8.decode(event.data);
           if (!mounted) return;
-
           if (text.startsWith("REACTION|")) {
             setState(() => _activeEmoji = text.split("|")[1]);
             Timer(const Duration(seconds: 2), () {
@@ -141,34 +117,28 @@ class _CallScreenState extends State<CallScreen> {
             });
             return;
           }
-
           setState(() => _lastTranscript = text);
         })
-        ..on<RoomDisconnectedEvent>((event) {
-          _log("LiveKit", "Disconnected.");
-          _safeExit();
+        ..on<RoomDisconnectedEvent>((event) => _safeExit())
+        ..on<RoomReconnectingEvent>((event) {
+          if (mounted) setState(() => _isReconnecting = true);
+        })
+        ..on<RoomReconnectedEvent>((event) {
+          if (mounted) setState(() => _isReconnecting = false);
         });
 
-      _log("LiveKit", "Connecting to wss://key-5d1ldsh2.livekit.cloud");
-
-      await _room!.connect(
-        "wss://key-5d1ldsh2.livekit.cloud",
-        token,
-        roomOptions: const RoomOptions(adaptiveStream: true, dynacast: true),
-      );
-
+      await _room!.connect("wss://key-5d1ldsh2.livekit.cloud", token);
       await _room!.startAudio();
       await _room!.localParticipant?.setMicrophoneEnabled(true);
-
-      // ✅ Apply audio routing after connection
-      _updateAudioRouting();
+      await _room!.setSpeakerOn(_isSpeakerOn);
 
       _startTimers();
-      if (!mounted) return;
-      setState(() {
-        _isConnected = true;
-        _lastTranscript = "Listening...";
-      });
+      if (mounted) {
+        setState(() {
+          _isConnected = true;
+          _lastTranscript = "Listening...";
+        });
+      }
     } catch (e) {
       _log("FATAL", e.toString());
       if (mounted) setState(() => _hasError = true);
@@ -214,21 +184,8 @@ class _CallScreenState extends State<CallScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: <Color>[
-              Color.fromARGB(255, 32, 139, 227),
-              Color.fromARGB(255, 44, 11, 50),
-            ],
-          ),
-        ),
-        child: SafeArea(
-          child: _hasError ? _buildErrorView() : _buildCallView(),
-        ),
-      ),
+      backgroundColor: Colors.black,
+      body: SafeArea(child: _hasError ? _buildErrorView() : _buildCallView()),
     );
   }
 
@@ -238,7 +195,7 @@ class _CallScreenState extends State<CallScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Icon(Icons.error_outline, color: Colors.redAccent, size: 80),
-          const SizedBox(height: 10),
+          const SizedBox(height: 20),
           const Text(
             "Connection Failed",
             style: TextStyle(
@@ -247,21 +204,8 @@ class _CallScreenState extends State<CallScreen> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 7),
-          const Text(
-            "Check Your Internet connection .",
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white54),
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 40),
           ElevatedButton(onPressed: _connect, child: const Text("Try Again")),
-          TextButton(
-            onPressed: _safeExit,
-            child: const Text(
-              "Cancel",
-              style: TextStyle(color: Colors.white38),
-            ),
-          ),
         ],
       ),
     );
@@ -281,7 +225,7 @@ class _CallScreenState extends State<CallScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
               child: Container(
                 padding: const EdgeInsets.all(20),
                 width: double.infinity,
@@ -301,6 +245,27 @@ class _CallScreenState extends State<CallScreen> {
               ),
             ),
             const Spacer(),
+
+            // --- AVATAR IMAGE DISPLAY ---
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.blueAccent.withOpacity(0.5),
+                  width: 2,
+                ),
+              ),
+              child: ClipOval(
+                child: Image.asset(
+                  widget.imagePath,
+                  width: 100,
+                  height: 100,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 800),
               child: Text(
@@ -308,7 +273,7 @@ class _CallScreenState extends State<CallScreen> {
                 key: ValueKey<int>(_textIndex),
                 style: const TextStyle(
                   color: Colors.blueAccent,
-                  fontSize: 20,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -316,24 +281,26 @@ class _CallScreenState extends State<CallScreen> {
             const SizedBox(height: 10),
             Text(
               "Vibe: ${widget.vibe}",
-              style: const TextStyle(
-                color: Color.fromARGB(255, 232, 229, 229),
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(color: Colors.white24, fontSize: 14),
             ),
             const SizedBox(height: 30),
-            WaveWidget(
-              level: _aiLevel,
-              color: const Color.fromARGB(255, 89, 148, 249),
-            ),
+            WaveWidget(level: _aiLevel, color: Colors.blueAccent),
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 40),
               child: Icon(Icons.compare_arrows, color: Colors.white10),
             ),
             WaveWidget(
               level: _isMuted ? 0 : _userLevel,
-              color: const Color.fromARGB(255, 126, 246, 188),
+              color: Colors.greenAccent,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              _isMuted ? "MIC MUTED" : "YOU ARE SPEAKING",
+              style: TextStyle(
+                color: _isMuted ? Colors.red : Colors.green,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
             ),
             const Spacer(),
             Padding(
@@ -350,9 +317,7 @@ class _CallScreenState extends State<CallScreen> {
                   _circle(Icons.call_end, false, _safeExit, red: true),
                   _circle(Icons.volume_up, _isSpeakerOn, () async {
                     setState(() => _isSpeakerOn = !_isSpeakerOn);
-                    if (!_isHeadsetConnected) {
-                      await _room!.setSpeakerOn(_isSpeakerOn);
-                    }
+                    await _room!.setSpeakerOn(_isSpeakerOn);
                   }),
                 ],
               ),

@@ -11,6 +11,7 @@ class VoiceSelectionScreen extends StatefulWidget {
 class _VoiceSelectionScreenState extends State<VoiceSelectionScreen>
     with TickerProviderStateMixin {
   String _selectedVoice = "female";
+  String _selectedImagePath = 'assets/images/missy.png'; // Default image
 
   late AnimationController _pulseController;
 
@@ -61,7 +62,6 @@ class _VoiceSelectionScreenState extends State<VoiceSelectionScreen>
             ),
             const SizedBox(height: 50),
 
-            // Gender selection row
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -97,7 +97,10 @@ class _VoiceSelectionScreenState extends State<VoiceSelectionScreen>
                     context,
                     PageRouteBuilder(
                       pageBuilder: (_, __, ___) =>
-                          MoodSelectionScreen(_selectedVoice, selectedVoice: '',),
+                          MoodSelectionScreen(
+                            selectedVoice: _selectedVoice,
+                            imagePath: _selectedImagePath,
+                          ),
                       transitionsBuilder: (_, animation, __, child) {
                         return SlideTransition(
                           position: Tween<Offset>(
@@ -146,7 +149,6 @@ class _VoiceSelectionScreenState extends State<VoiceSelectionScreen>
     );
   }
 
-  // ----------------- Gender Card -----------------
   Widget _genderCard(
     String name,
     String gender,
@@ -160,6 +162,7 @@ class _VoiceSelectionScreenState extends State<VoiceSelectionScreen>
         HapticFeedback.mediumImpact();
         setState(() {
           _selectedVoice = gender;
+          _selectedImagePath = assetPath;
         });
       },
       child: Opacity(
@@ -175,7 +178,6 @@ class _VoiceSelectionScreenState extends State<VoiceSelectionScreen>
     );
   }
 
-  // ----------------- Partner Card with Image -----------------
   Widget _partnerCardImage(
     String name,
     String value,
@@ -224,47 +226,6 @@ class _VoiceSelectionScreenState extends State<VoiceSelectionScreen>
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  // ----------------- Original PartnerCard (optional, keep for icon version) -----------------
-  Widget _partnerCard(String name, String value, IconData icon) {
-    final isSelected = _selectedVoice == value;
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.mediumImpact();
-        setState(() => _selectedVoice = value);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        padding: const EdgeInsets.all(25),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? Colors.blueAccent.withOpacity(0.15)
-              : Colors.white.withOpacity(0.03),
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(
-            color: isSelected ? Colors.blueAccent : Colors.white10,
-            width: 2,
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              size: 60,
-              color: isSelected ? Colors.blueAccent : Colors.white24,
-            ),
-            const SizedBox(height: 15),
-            Text(
-              name,
-              style: TextStyle(
-                color: isSelected ? Colors.white : Colors.white24,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

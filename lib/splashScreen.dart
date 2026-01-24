@@ -2,7 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 
-import 'package:loveable/voice_selection_screen.dart';
+import 'voice_selection_screen.dart';
 
 // 1. Initial Entry Point
 
@@ -149,7 +149,7 @@ class _SplashScreenState extends State<SplashScreen>
         PageRouteBuilder(
           transitionDuration: const Duration(milliseconds: 800),
           pageBuilder: (context, animation, secondaryAnimation) =>
-              VoiceSelectionScreen(),
+              const VoiceSelectionScreen(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(opacity: animation, child: child);
           },
