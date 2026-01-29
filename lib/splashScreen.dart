@@ -230,14 +230,26 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ],
           ),
-          const Positioned(
-            bottom: 50,
+           const Positioned(
+            bottom: 90,
             child: SizedBox(
               width: 40,
               height: 40,
               child: CupertinoActivityIndicator(
                 radius: 20.0,
                 color: Colors.blueAccent,
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 60,
+            child: SizedBox(
+              child: Text(
+                'Built with immense love ❤️',
+                style: TextStyle(
+                    color: const Color.fromARGB(255, 225, 225, 225),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold),
               ),
             ),
           ),

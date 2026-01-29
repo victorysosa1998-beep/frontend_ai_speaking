@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "949064788583",
+    "project_id": "sympy-ai",
+    "storage_bucket": "sympy-ai.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:949064788583:android:38de1b22aece363ea4c2c2",
+        "android_client_info": {
+          "package_name": "com.example.loveable"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAhPlADxL5QW1SHzAexXQeT72qemGU6cyQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
