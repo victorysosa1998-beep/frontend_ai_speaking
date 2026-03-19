@@ -3,17 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:headphones_detection/headphones_detection.dart';
-import 'splashScreen.dart';
-import 'voice_selection_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+// Your local imports
 import 'firebase_options.dart';
+import 'login_page.dart';
+import 'splashScreen.dart';
+import 'voice_selection_screen.dart';
 
 void main() async {
-  // Ensure engine is ready
+  // Ensure engine is ready before any async calls
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase immediately
+  // Initialize Firebase
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -38,22 +42,12 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    // Run all setup tasks without blocking the main thread
+    // Run all setup tasks without blocking the UI thread
     _initializeAppLogic();
   }
 
   Future<void> _initializeAppLogic() async {
-    // 1. Handle Anonymous Login
-    try {
-      if (FirebaseAuth.instance.currentUser == null) {
-        await FirebaseAuth.instance.signInAnonymously();
-        debugPrint("✅ Firebase anonymous login successful.");
-      }
-    } catch (e) {
-      debugPrint("❌ Firebase login failed: $e");
-    }
-
-    // 2. Initialize Audio Session
+    // 1. Audio Session Configuration
     try {
       final session = await AudioSession.instance;
       await session.configure(
@@ -74,7 +68,7 @@ class _MyAppState extends State<MyApp> {
       debugPrint("Audio session setup failed: $e");
     }
 
-    // 3. Headset detection
+    // 2. Headset detection
     try {
       await HeadphonesDetection.isHeadphonesConnected();
       HeadphonesDetection.headphonesStream.listen((bool connected) {
@@ -82,7 +76,7 @@ class _MyAppState extends State<MyApp> {
       });
     } catch (_) {}
 
-    // 4. Permission Request (This determines the screen)
+    // 3. Microphone Permission Request
     bool granted = false;
     try {
       final status = await Permission.microphone.status;
@@ -108,12 +102,33 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       theme: ThemeData(iconTheme: const IconThemeData(color: Colors.white)),
       debugShowCheckedModeBanner: false,
-      home: _buildHomeScreen(),
+      // The StreamBuilder listens for login/logout events
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          // While checking auth status, show a loader
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              backgroundColor: Colors.black,
+              body:
+                  Center(child: CircularProgressIndicator(color: Colors.white)),
+            );
+          }
+
+          // If NOT logged in, show the LoginPage
+          if (!snapshot.hasData) {
+            return const LoginPage();
+          }
+
+          // If logged in, check permissions and show the main app
+          return _buildHomeScreen();
+        },
+      ),
     );
   }
 
   Widget _buildHomeScreen() {
-    // Show a loading spinner while waiting for permission check
+    // Show loading while permission state is null
     if (_micGranted == null) {
       return const Scaffold(
         backgroundColor: Colors.black,
@@ -121,11 +136,32 @@ class _MyAppState extends State<MyApp> {
       );
     }
 
+    // Direct user to WelcomeScreen if permission is granted
     return _micGranted! ? WelcomeScreen() : PermissionDeniedScreen();
+  }
+
+
+Future<void> _syncUserToFirestore(User user) async {
+  final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
+  
+  final doc = await userDoc.get();
+  if (!doc.exists) {
+    // This is a new user! Give them the 50 free credits
+    await userDoc.set({
+      'credits': 50,
+      'is_premium': false,
+      'created_at': FieldValue.serverTimestamp(),
+      'email': user.email,
+    });
   }
 }
 
-// Screen for denied microphone permission
+}
+
+// ------------------------------------------------------------------
+// REUSABLE SCREENS & WIDGETS
+// ------------------------------------------------------------------
+
 class PermissionDeniedScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -156,7 +192,6 @@ class PermissionDeniedScreen extends StatelessWidget {
   }
 }
 
-// Optional: example speaker toggle button
 class SpeakerToggleButton extends StatefulWidget {
   const SpeakerToggleButton({super.key});
 
@@ -173,10 +208,206 @@ class _SpeakerToggleButtonState extends State<SpeakerToggleButton> {
       icon: Icon(isSpeakerOn ? Icons.volume_up : Icons.volume_down),
       onPressed: () {
         setState(() => isSpeakerOn = !isSpeakerOn);
-        debugPrint(
-          "Speaker toggle pressed. Implement platform-specific routing here.",
-        );
+        debugPrint("Speaker toggle pressed.");
       },
+    );
+  }
+}
+
+// ------------------------------------------------------------------
+// PROFILE PAGE WITH FIXED LOGOUT & DELETE ACCOUNT
+// ------------------------------------------------------------------
+
+class ProfilePage extends StatelessWidget {
+  const ProfilePage({super.key});
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: const Text("Delete Account?",
+            style: TextStyle(color: Colors.white)),
+        content: const Text(
+          "This will permanently delete your profile and chat history from our servers. This action cannot be undone.",
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                await FirebaseAuth.instance.currentUser?.delete();
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const LoginPage()),
+                    (route) => false,
+                  );
+                }
+              } catch (e) {
+                // Handle re-authentication if necessary
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content:
+                            Text("Please log in again to delete account.")),
+                  );
+                }
+              }
+            },
+            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    final String displayName = user?.displayName ?? "";
+    final String email = user?.email ?? "";
+    final String initial =
+        displayName.isNotEmpty ? displayName[0].toUpperCase() : "?";
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F0F0F),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.chevron_left, color: Colors.white, size: 30),
+          onPressed: () => Navigator.pop(context),
+        ),
+        centerTitle: true,
+        title: const Text(
+          "Account",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+      ),
+      body: Column(
+        children: [
+          const SizedBox(height: 30),
+          // PROFILE PICTURE
+          Center(
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 45,
+                  backgroundColor: const Color(0xFF004D40),
+                  child: Text(
+                    initial,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  "Tap to change profile picture",
+                  style: TextStyle(color: Colors.white38, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 40),
+          // INFO CARD
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1C1C1E),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              children: [
+                _buildInfoRow("Name", displayName, showArrow: true),
+                const Divider(
+                    color: Colors.white10,
+                    height: 1,
+                    indent: 20,
+                    endIndent: 20),
+                _buildInfoRow("Email", email, showArrow: false),
+                const Divider(
+                    color: Colors.white10,
+                    height: 1,
+                    indent: 20,
+                    endIndent: 20),
+                ListTile(
+                  leading:
+                      const Icon(Icons.delete_forever, color: Colors.redAccent),
+                  title: const Text("Delete Account",
+                      style: TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.bold)),
+                  subtitle: const Text("Permanently remove your data",
+                      style: TextStyle(color: Colors.white38)),
+                  onTap: () => _confirmDelete(context),
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          // LOGOUT BUTTON
+          Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: SizedBox(
+              width: double.infinity,
+              height: 55,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1C1C1E),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15)),
+                ),
+                onPressed: () async {
+                  await FirebaseAuth.instance.signOut();
+                  if (context.mounted) {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                          builder: (context) => const LoginPage()),
+                      (route) => false,
+                    );
+                  }
+                },
+                child: const Text(
+                  "Log out",
+                  style: TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value, {required bool showArrow}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      child: Row(
+        children: [
+          Text(label,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500)),
+          const Spacer(),
+          Text(value,
+              style: const TextStyle(color: Colors.white38, fontSize: 15)),
+          if (showArrow) ...[
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right, color: Colors.white24, size: 20),
+          ]
+        ],
+      ),
     );
   }
 }

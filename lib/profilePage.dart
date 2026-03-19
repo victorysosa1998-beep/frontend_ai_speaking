@@ -1,5 +1,7 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:loveable/login_page.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -142,33 +144,49 @@ class ProfilePage extends StatelessWidget {
 
           const Spacer(),
 
-          // --- LOGOUT BUTTON ---
-          Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1C1C1E),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15)),
-                ),
-                onPressed: () async {
-                  await FirebaseAuth.instance.signOut();
-                  if (context.mounted) Navigator.pop(context);
-                },
-                child: const Text(
-                  "Log out",
-                  style: TextStyle(
-                      color: Colors.redAccent,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
+      
+      // --- LOGOUT BUTTON ---
+Padding(
+  padding: const EdgeInsets.all(24.0),
+  child: SizedBox(
+    width: double.infinity,
+    height: 55,
+    child: ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF1C1C1E),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15)),
+      ),
+     // profilePage.dart - Update the Logout Button section
+onPressed: () async {
+  // 1. Clear the Firebase session
+  await FirebaseAuth.instance.signOut();
+
+  // 2. Clear local storage/app data (Optional but recommended)
+  // import 'package:shared_preferences/shared_preferences.dart';
+  // final prefs = await SharedPreferences.getInstance();
+  // await prefs.clear();
+
+  // 3. Navigate to login and wipe the navigation history
+  if (context.mounted) {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (context) => const LoginPage(), // Ensure this matches your login file name
+      ),
+      (Route<dynamic> route) => false, // This condition removes all previous routes
+    );
+  }
+
+},child: const Text(
+        "Log out",
+        style: TextStyle(
+            color: Colors.redAccent,
+            fontSize: 16,
+            fontWeight: FontWeight.bold),
+      ),
+    ),
+  ),
+),const SizedBox(height: 20),
         ],
       ),
     );

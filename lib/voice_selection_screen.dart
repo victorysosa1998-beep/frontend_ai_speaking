@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'mood_selection_screen.dart';
-import 'secrets.dart';
 
 class VoiceSelectionScreen extends StatefulWidget {
   const VoiceSelectionScreen({super.key});
@@ -14,11 +10,12 @@ class VoiceSelectionScreen extends StatefulWidget {
 
 class _VoiceSelectionScreenState extends State<VoiceSelectionScreen>
     with TickerProviderStateMixin {
-  final String _selectedVoice = "female";
-  final String _selectedImagePath = 'assets/images/missy.png';
+  // ✅ Start with no selection — user must actively choose
+  String? _selectedVoice;
+  String? _selectedImagePath;
 
   late AnimationController _pulseController;
- 
+
   @override
   void initState() {
     super.initState();
@@ -28,19 +25,24 @@ class _VoiceSelectionScreenState extends State<VoiceSelectionScreen>
     )..repeat(reverse: true);
   }
 
-
   @override
   void dispose() {
     _pulseController.dispose();
     super.dispose();
   }
 
+  void _selectVoice(String voice, String imagePath) {
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _selectedVoice = voice;
+      _selectedImagePath = imagePath;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      
       backgroundColor: const Color(0xFF0F0F0F),
-    
       extendBodyBehindAppBar: true,
       body: Container(
         width: double.infinity,
@@ -65,25 +67,34 @@ class _VoiceSelectionScreenState extends State<VoiceSelectionScreen>
               ),
             ),
             const Text(
-              "Meet your companion! ",
+              "Meet your companion!",
               style: TextStyle(
                 color: Colors.white54,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 50),
+            // ✅ Both Buddy and Missy side by side
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 _genderCard(
-                  "Missy",
-                  "female",
-                  'assets/images/missy.png',
-                  const Color.fromARGB(255, 189, 81, 117),
+                  name: "Buddy",
+                  voice: "male",
+                  assetPath: 'assets/images/buddy.png',
+                  borderColor: const Color(0xFF4A90D9),
+                ),
+                const SizedBox(width: 20),
+                _genderCard(
+                  name: "Missy",
+                  voice: "female",
+                  assetPath: 'assets/images/missy.png',
+                  borderColor: const Color.fromARGB(255, 189, 81, 117),
                 ),
               ],
             ),
             const SizedBox(height: 80),
+            // ✅ NEXT button — only active when a voice is selected
             ScaleTransition(
               scale: Tween<double>(begin: 1.0, end: 1.05).animate(
                 CurvedAnimation(
@@ -92,48 +103,67 @@ class _VoiceSelectionScreenState extends State<VoiceSelectionScreen>
                 ),
               ),
               child: GestureDetector(
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.push(
-                    context,
-                    PageRouteBuilder(
-                      pageBuilder: (_, __, ___) => MoodSelectionScreen(
-                        selectedVoice: _selectedVoice,
-                        imagePath: _selectedImagePath,
-                        selectedImagePath: 'assets/images/missy.png',
-                      ),
-                      transitionsBuilder: (_, animation, __, child) {
-                        return SlideTransition(
-                          position: Tween<Offset>(
-                            begin: const Offset(1, 0),
-                            end: Offset.zero,
-                          ).animate(animation),
-                          child: child,
+                onTap: _selectedVoice == null
+                    ? () {
+                        HapticFeedback.heavyImpact();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Please choose Buddy or Missy first!"),
+                            backgroundColor: Colors.blueAccent,
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    : () {
+                        HapticFeedback.lightImpact();
+                        Navigator.push(
+                          context,
+                          PageRouteBuilder(
+                            pageBuilder: (_, __, ___) => MoodSelectionScreen(
+                              selectedVoice: _selectedVoice!,
+                              imagePath: _selectedImagePath!,
+                              selectedImagePath: _selectedImagePath!,
+                            ),
+                            transitionsBuilder: (_, animation, __, child) {
+                              return SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(1, 0),
+                                  end: Offset.zero,
+                                ).animate(animation),
+                                child: child,
+                              );
+                            },
+                          ),
                         );
                       },
-                    ),
-                  );
-                },
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 86, vertical: 13),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 86, vertical: 13),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(40),
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white,
-                        Colors.blueAccent,
-                        Colors.purpleAccent,
-                        Colors.blueAccent,
-                      ],
-                    ),
+                    gradient: _selectedVoice != null
+                        ? const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.white,
+                              Colors.blueAccent,
+                              Colors.purpleAccent,
+                              Colors.blueAccent,
+                            ],
+                          )
+                        : null,
+                    color: _selectedVoice == null
+                        ? Colors.white12
+                        : null,
                   ),
-                  child: const Text(
+                  child: Text(
                     "NEXT",
                     style: TextStyle(
-                      color: Colors.white,
+                      color: _selectedVoice != null
+                          ? Colors.white
+                          : Colors.white38,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
@@ -147,52 +177,76 @@ class _VoiceSelectionScreenState extends State<VoiceSelectionScreen>
     );
   }
 
-
-  Widget _genderCard(
-      String name, String gender, String assetPath, Color borderColor) {
-    bool isSelected = true;
+  Widget _genderCard({
+    required String name,
+    required String voice,
+    required String assetPath,
+    required Color borderColor,
+  }) {
+    final bool isSelected = _selectedVoice == voice;
     return GestureDetector(
-      onTap: () => HapticFeedback.mediumImpact(),
-      child:
-          _partnerCardImage(name, gender, assetPath, borderColor, isSelected),
-    );
-  }
-
-  Widget _partnerCardImage(String name, String value, String assetPath,
-      Color borderColor, bool isSelected) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isSelected
-            ? Colors.blueAccent.withOpacity(0.15)
-            : Colors.white.withOpacity(0.03),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(
-            color: isSelected ? borderColor : Colors.transparent, width: 2),
-      ),
-      child: Column(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
+      onTap: () => _selectVoice(voice, assetPath),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Colors.blueAccent.withOpacity(0.15)
+              : Colors.white.withOpacity(0.03),
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(
+            color: isSelected ? borderColor : Colors.white12,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
                   color: isSelected ? borderColor : Colors.transparent,
-                  width: 3),
+                  width: 3,
+                ),
+              ),
+              child: ClipOval(
+                child: Image.asset(
+                  assetPath,
+                  width: 80,
+                  height: 80,
+                  fit: BoxFit.cover,
+                  // Fallback if asset not found
+                  errorBuilder: (_, __, ___) => CircleAvatar(
+                    radius: 40,
+                    backgroundColor: borderColor.withOpacity(0.3),
+                    child: Icon(
+                      voice == "male" ? Icons.person : Icons.person_2,
+                      color: borderColor,
+                      size: 40,
+                    ),
+                  ),
+                ),
+              ),
             ),
-            child: ClipOval(
-              child: Image.asset(assetPath,
-                  width: 60, height: 60, fit: BoxFit.cover),
+            const SizedBox(height: 15),
+            Text(
+              name,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.white38,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
             ),
-          ),
-          const SizedBox(height: 15),
-          Text(
-            name,
-            style: TextStyle(
-                color: isSelected ? Colors.white : Colors.white24,
-                fontWeight: FontWeight.bold),
-          ),
-        ],
+            const SizedBox(height: 4),
+            Text(
+              voice == "male" ? "Male" : "Female",
+              style: TextStyle(
+                color: isSelected ? borderColor : Colors.white24,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
