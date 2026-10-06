@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
-import 'package:loveable/secrets.dart';
+import 'package:ovie/secrets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Holds the full credit picture for a user:
@@ -72,7 +72,7 @@ class CreditService {
     return _db.collection('users').doc(uid);
   }
 
-  /// Get the device/user ID (same logic as SympyChatPage uses for X-User-Id)
+  /// Get the device/user ID (same logic as OvieChatPage uses for X-User-Id)
   Future<String> _getDeviceId() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('sympy_user_id') ?? _uid ?? '';
@@ -88,12 +88,17 @@ class CreditService {
 
     try {
       final deviceId = await _getDeviceId();
+      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+      if (idToken == null || idToken.isEmpty) {
+        return const CreditBalance();
+      }
       final response = await http.get(
         Uri.parse("$_baseUrl/credits/balance"),
         headers: {
           "X-API-KEY": AppSecrets.appApiKey,
           "X-User-Id": uid,
           "X-Device-Id": deviceId,
+          "Authorization": "Bearer $idToken",
         },
       ).timeout(const Duration(seconds: 6));
 

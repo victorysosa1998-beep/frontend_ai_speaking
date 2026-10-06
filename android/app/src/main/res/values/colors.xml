@@ -2,4 +2,5 @@
 <resources>
     <!-- Accent colour shown on FCM notification icon on Android -->
     <color name="notification_color">#4776E6</color>
+    <color name="ovie_background">#070817</color>
 </resources>

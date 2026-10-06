@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:loveable/Upgradepage.dart';
+import 'package:ovie/UpgradePage.dart';
 
 
 /// Shown after user taps "I've Made the Payment".
@@ -336,7 +336,7 @@ class _PaymentPendingPageState extends State<PaymentPendingPage>
         ),
         const SizedBox(height: 10),
         Text(
-          "We couldn't verify your payment. Please check your transfer and contact support at support@sympyapp.com with your reference.",
+          "We couldn't verify your payment. Please check your transfer and contact support from the Support link in Settings with your reference.",
           textAlign: TextAlign.center,
           style: TextStyle(
             color: Colors.white.withOpacity(0.4),

@@ -1,6 +1,5 @@
-import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:headphones_detection/headphones_detection.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -8,12 +7,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 // Your local imports
 import 'firebase_options.dart';
 import 'login_page.dart';
-import 'splashScreen.dart';
-import 'voice_selection_screen.dart';
+import 'social_home.dart';
+import 'group_call_page.dart';
+import 'app_brand.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FCM BACKGROUND HANDLER
@@ -23,7 +24,9 @@ import 'voice_selection_screen.dart';
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  debugPrint("[FCM] Background: ${message.notification?.title} | type=${message.data['type']}");
+  debugPrint(
+    "[FCM] Background: ${message.notification?.title} | type=${message.data['type']}",
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -59,7 +62,7 @@ const _channelCredits = AndroidNotificationChannel(
 const _channelPromo = AndroidNotificationChannel(
   'sympy_promos',
   'Offers & Updates',
-  description: 'Promotional offers and app updates from Sympy',
+  description: 'Promotional offers and app updates from Ovie',
   importance: Importance.low,
   playSound: false,
 );
@@ -84,7 +87,8 @@ void main() async {
   // Create all Android notification channels
   final androidPlugin = _localNotifications
       .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
+        AndroidFlutterLocalNotificationsPlugin
+      >();
   await androidPlugin?.createNotificationChannel(_channelReminder);
   await androidPlugin?.createNotificationChannel(_channelMessage);
   await androidPlugin?.createNotificationChannel(_channelCredits);
@@ -101,7 +105,9 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   bool? _micGranted;
+  String? _lastSyncedUid;
 
   @override
   void initState() {
@@ -139,24 +145,11 @@ class _MyAppState extends State<MyApp> {
       });
     } catch (_) {}
 
-    // 3. Microphone Permission Request
-    bool granted = false;
-    try {
-      final status = await Permission.microphone.status;
-      if (!status.isGranted) {
-        final result = await Permission.microphone.request();
-        granted = result.isGranted;
-      } else {
-        granted = true;
-      }
-    } catch (e) {
-      debugPrint("Microphone permission failed: $e");
-    }
-
+    // 3. Do not request microphone permission during app startup.
+    // Chat and Fun Zone work without a microphone. The call screen requests
+    // RECORD_AUDIO only when the user actually starts a voice/video call.
     if (mounted) {
-      setState(() {
-        _micGranted = granted;
-      });
+      setState(() => _micGranted = true);
     }
 
     // 4. Push Notifications
@@ -188,15 +181,19 @@ class _MyAppState extends State<MyApp> {
       messaging.onTokenRefresh.listen(_saveFcmToken);
 
       // Init local notifications for foreground heads-up display
-      const androidInit =
-          AndroidInitializationSettings('@mipmap/ic_launcher');
+      const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
       const initSettings = InitializationSettings(android: androidInit);
       await _localNotifications.initialize(
-        initSettings,
+        settings: initSettings,
         onDidReceiveNotificationResponse: (details) {
           debugPrint("[FCM] Notification tapped: ${details.payload}");
           if (details.payload != null) {
-            _handleNotificationTap({'route': details.payload!});
+            try {
+              final parsed = jsonDecode(details.payload!);
+              _handleNotificationTap(Map<String, dynamic>.from(parsed));
+            } catch (_) {
+              _handleNotificationTap({'route': details.payload!});
+            }
           }
         },
       );
@@ -222,20 +219,20 @@ class _MyAppState extends State<MyApp> {
         }
 
         _localNotifications.show(
-          notification.hashCode,
-          notification.title,
-          notification.body,
-          NotificationDetails(
+          id: notification.hashCode,
+          title: notification.title,
+          body: notification.body,
+          notificationDetails: NotificationDetails(
             android: AndroidNotificationDetails(
               channel.id,
               channel.name,
               channelDescription: channel.description,
               importance: channel.importance,
               priority: Priority.high,
-              icon: '@mipmap/ic_launcher',
+              icon: '@drawable/ic_stat_sympy',
             ),
           ),
-          payload: message.data['route'],
+          payload: jsonEncode(message.data),
         );
       });
 
@@ -260,9 +257,23 @@ class _MyAppState extends State<MyApp> {
   void _handleNotificationTap(Map<String, dynamic> data) {
     final route = data['route'] ?? '';
     debugPrint("[FCM] Tap route: $route");
-    // Extend this with Navigator pushes based on route field:
-    // if (route == 'upgrade') Navigator.push(context, MaterialPageRoute(builder: (_) => UpgradePage()));
-    // if (route == 'chat') Navigator.push(context, MaterialPageRoute(builder: (_) => SympyChatPage(...)));
+    final nav = _navigatorKey.currentState;
+    if (nav == null) return;
+    if (route == 'group_call') {
+      final invite = data['invite_code']?.toString() ?? '';
+      if (invite.isEmpty) return;
+      nav.push(
+        MaterialPageRoute(
+          builder: (_) => GroupCallPage(
+            voice: data['voice']?.toString() ?? 'female',
+            vibe: data['vibe']?.toString() ?? 'Gist',
+            groupId: data['group_id']?.toString(),
+            inviteCode: invite,
+            autoStart: true,
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _saveFcmToken(String token) async {
@@ -277,10 +288,7 @@ class _MyAppState extends State<MyApp> {
       // set+merge creates the field if missing and updates it if present —
       // and it's allowed by the Firestore security rules that permit the user
       // to write their own document.
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .set({
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'fcm_token': token,
         'fcm_updated_at': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -295,9 +303,64 @@ class _MyAppState extends State<MyApp> {
   // ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    const seed = Color(0xFF8B5CF6);
     return MaterialApp(
-      theme: ThemeData(iconTheme: const IconThemeData(color: Colors.white)),
+      navigatorKey: _navigatorKey,
+      title: OvieBrand.name,
       debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.dark,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: seed,
+          brightness: Brightness.dark,
+        ),
+        scaffoldBackgroundColor: OvieBrand.background,
+        canvasColor: OvieBrand.background,
+        splashFactory: InkSparkle.splashFactory,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: false,
+        ),
+        cardTheme: const CardThemeData(
+          color: OvieBrand.card,
+          elevation: 0,
+          margin: EdgeInsets.zero,
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white10,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(16)),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(16)),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(16)),
+            borderSide: BorderSide(color: OvieBrand.primary, width: 1.2),
+          ),
+          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            minimumSize: const Size.fromHeight(52),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ),
+        snackBarTheme: SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(14)),
+          ),
+        ),
+      ),
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
@@ -305,7 +368,8 @@ class _MyAppState extends State<MyApp> {
             return const Scaffold(
               backgroundColor: Colors.black,
               body: Center(
-                  child: CircularProgressIndicator(color: Colors.white)),
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
             );
           }
 
@@ -313,10 +377,13 @@ class _MyAppState extends State<MyApp> {
             return const LoginPage();
           }
 
-          Future.delayed(
-            const Duration(seconds: 2),
-            () => _syncUserToFirestore(snapshot.data!),
-          );
+          final user = snapshot.data!;
+          if (_lastSyncedUid != user.uid) {
+            _lastSyncedUid = user.uid;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _syncUserToFirestore(user);
+            });
+          }
 
           return _buildHomeScreen();
         },
@@ -325,10 +392,9 @@ class _MyAppState extends State<MyApp> {
   }
 
   Widget _buildHomeScreen() {
-    if (_micGranted == false) {
-      return PermissionDeniedScreen();
-    }
-    return WelcomeScreen();
+    // Microphone permission is requested by the call UI, not at startup.
+    // Never block the main app because startup permission state is unavailable.
+    return const SocialHome();
   }
 
   Future<void> _syncUserToFirestore(User user) async {
@@ -337,16 +403,26 @@ class _MyAppState extends State<MyApp> {
         debugPrint("[SYNC] Skipping — user no longer signed in");
         return;
       }
-      final userDoc =
-          FirebaseFirestore.instance.collection('users').doc(user.uid);
+      final userDoc = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid);
       final doc = await userDoc.get();
       if (!doc.exists) {
+        final name = user.displayName?.trim().isNotEmpty == true
+            ? user.displayName!.trim()
+            : 'Ovie User';
+        // Server-owned billing/quota fields are intentionally not written by the client.
+        // The backend creates/initializes those fields using Firebase Admin SDK.
         await userDoc.set({
-          'credits': 0,
-          'is_premium': false,
-          'created_at': FieldValue.serverTimestamp(),
           'email': user.email,
-          'free_seconds_remaining': 180,
+          'display_name': name,
+          'bio': 'Finding my vibe on Ovie ✨',
+          'photo_url': user.photoURL,
+          'friends_count': 0,
+          'followers_count': 0,
+          'following_count': 0,
+          'posts_count': 0,
+          'status_count': 0,
         });
         debugPrint("[SYNC] New user document created for ${user.uid}");
       } else {
@@ -428,8 +504,10 @@ class ProfilePage extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text("Delete Account?",
-            style: TextStyle(color: Colors.white)),
+        title: const Text(
+          "Delete Account?",
+          style: TextStyle(color: Colors.white),
+        ),
         content: const Text(
           "This will permanently delete your profile and chat history from our servers. This action cannot be undone.",
           style: TextStyle(color: Colors.white70),
@@ -445,8 +523,7 @@ class ProfilePage extends StatelessWidget {
                 await FirebaseAuth.instance.currentUser?.delete();
                 if (context.mounted) {
                   Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(
-                        builder: (context) => const LoginPage()),
+                    MaterialPageRoute(builder: (context) => const LoginPage()),
                     (route) => false,
                   );
                 }
@@ -454,14 +531,13 @@ class ProfilePage extends StatelessWidget {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                        content: Text(
-                            "Please log in again to delete account.")),
+                      content: Text("Please log in again to delete account."),
+                    ),
                   );
                 }
               }
             },
-            child:
-                const Text("Delete", style: TextStyle(color: Colors.red)),
+            child: const Text("Delete", style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -473,8 +549,9 @@ class ProfilePage extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
     final String displayName = user?.displayName ?? "";
     final String email = user?.email ?? "";
-    final String initial =
-        displayName.isNotEmpty ? displayName[0].toUpperCase() : "?";
+    final String initial = displayName.isNotEmpty
+        ? displayName[0].toUpperCase()
+        : "?";
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F0F),
@@ -488,8 +565,7 @@ class ProfilePage extends StatelessWidget {
         centerTitle: true,
         title: const Text(
           "Account",
-          style:
-              TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
       body: Column(
@@ -504,9 +580,10 @@ class ProfilePage extends StatelessWidget {
                   child: Text(
                     initial,
                     style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold),
+                      color: Colors.white,
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -528,25 +605,34 @@ class ProfilePage extends StatelessWidget {
               children: [
                 _buildInfoRow("Name", displayName, showArrow: true),
                 const Divider(
-                    color: Colors.white10,
-                    height: 1,
-                    indent: 20,
-                    endIndent: 20),
+                  color: Colors.white10,
+                  height: 1,
+                  indent: 20,
+                  endIndent: 20,
+                ),
                 _buildInfoRow("Email", email, showArrow: false),
                 const Divider(
-                    color: Colors.white10,
-                    height: 1,
-                    indent: 20,
-                    endIndent: 20),
+                  color: Colors.white10,
+                  height: 1,
+                  indent: 20,
+                  endIndent: 20,
+                ),
                 ListTile(
-                  leading: const Icon(Icons.delete_forever,
-                      color: Colors.redAccent),
-                  title: const Text("Delete Account",
-                      style: TextStyle(
-                          color: Colors.redAccent,
-                          fontWeight: FontWeight.bold)),
-                  subtitle: const Text("Permanently remove your data",
-                      style: TextStyle(color: Colors.white38)),
+                  leading: const Icon(
+                    Icons.delete_forever,
+                    color: Colors.redAccent,
+                  ),
+                  title: const Text(
+                    "Delete Account",
+                    style: TextStyle(
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    "Permanently remove your data",
+                    style: TextStyle(color: Colors.white38),
+                  ),
                   onTap: () => _confirmDelete(context),
                 ),
               ],
@@ -562,14 +648,16 @@ class ProfilePage extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1C1C1E),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15)),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
                 ),
                 onPressed: () async {
                   await FirebaseAuth.instance.signOut();
                   if (context.mounted) {
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(
-                          builder: (context) => const LoginPage()),
+                        builder: (context) => const LoginPage(),
+                      ),
                       (route) => false,
                     );
                   }
@@ -577,9 +665,10 @@ class ProfilePage extends StatelessWidget {
                 child: const Text(
                   "Log out",
                   style: TextStyle(
-                      color: Colors.redAccent,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold),
+                    color: Colors.redAccent,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -590,27 +679,28 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoRow(String label, String value,
-      {required bool showArrow}) {
+  Widget _buildInfoRow(String label, String value, {required bool showArrow}) {
     return Padding(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       child: Row(
         children: [
-          Text(label,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500)),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
           const Spacer(),
-          Text(value,
-              style:
-                  const TextStyle(color: Colors.white38, fontSize: 15)),
+          Text(
+            value,
+            style: const TextStyle(color: Colors.white38, fontSize: 15),
+          ),
           if (showArrow) ...[
             const SizedBox(width: 8),
-            const Icon(Icons.chevron_right,
-                color: Colors.white24, size: 20),
-          ]
+            const Icon(Icons.chevron_right, color: Colors.white24, size: 20),
+          ],
         ],
       ),
     );

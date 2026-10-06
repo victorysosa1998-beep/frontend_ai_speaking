@@ -26,7 +26,7 @@ plugins {
 
 android {
     namespace = "com.example.loveable" 
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     
     // Satisfies requirements for the speech_to_text plugin
     ndkVersion = "28.2.13676358"
@@ -37,15 +37,17 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
+   kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
+}
 
     defaultConfig {
         applicationId = "com.example.loveable"
         // These use the versions from your pubspec.yaml automatically
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutterVersionCode.toInt()
         versionName = flutterVersionName
     }

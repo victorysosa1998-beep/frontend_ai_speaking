@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:loveable/Paymentdetailspage.dart';
-import 'package:loveable/Upgradepage.dart';
+import 'package:ovie/Paymentdetailspage.dart';
+import 'package:ovie/UpgradePage.dart';
 
 
 class PaymentMethodPage extends StatefulWidget {

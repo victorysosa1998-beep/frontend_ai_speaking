@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:loveable/PaymentMethodPage.dart';
+import 'package:ovie/PaymentMethodPage.dart';
 
 class CreditPack {
   final String id;

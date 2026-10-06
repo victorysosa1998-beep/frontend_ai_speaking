@@ -5,9 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
-import 'package:loveable/secrets.dart';
-import 'package:loveable/Upgradepage.dart';
-import 'package:loveable/PaymentPendingPage.dart';
+import 'package:ovie/secrets.dart';
+import 'package:ovie/UpgradePage.dart';
+import 'package:ovie/Paymentpendingpage.dart';
 
 // ─── YOUR PAYMENT DETAILS — edit these ───────────────────────────────────────
 const _kBankName       = "Opay";
@@ -22,7 +22,7 @@ String _generateReference() {
   final rand = Random.secure();
   final suffix =
       List.generate(6, (_) => chars[rand.nextInt(chars.length)]).join();
-  return 'SYMP-$suffix';
+  return 'OVIE-$suffix';
 }
 
 class PaymentDetailsPage extends StatefulWidget {

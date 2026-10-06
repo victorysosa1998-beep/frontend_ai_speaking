@@ -3,17 +3,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
-// ─── CONFIGURE ADMIN UID ────────────────────────────────────────────────────
-// Add the Firebase UID of your admin account here.
-// You can find this in Firebase Console → Authentication
-const List<String> kAdminUids = [
-  "YOUR_ADMIN_FIREBASE_UID_HERE", // <-- replace
-];
-// ────────────────────────────────────────────────────────────────────────────
-
-bool get isAdmin {
+// Admin access is provisioned in Firestore at admins/{uid}.
+// The document is intentionally not writable from the client.
+Future<bool> checkIsAdmin() async {
   final uid = FirebaseAuth.instance.currentUser?.uid;
-  return uid != null && kAdminUids.contains(uid);
+  if (uid == null) return false;
+  try {
+    final snap = await FirebaseFirestore.instance.collection('admins').doc(uid).get();
+    return snap.exists;
+  } catch (_) {
+    return false;
+  }
 }
 
 class AdminPanelPage extends StatefulWidget {
@@ -26,11 +26,23 @@ class AdminPanelPage extends StatefulWidget {
 class _AdminPanelPageState extends State<AdminPanelPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  bool _isAdmin = false;
+  bool _checkingAdmin = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _loadAdminAccess();
+  }
+
+  Future<void> _loadAdminAccess() async {
+    final allowed = await checkIsAdmin();
+    if (!mounted) return;
+    setState(() {
+      _isAdmin = allowed;
+      _checkingAdmin = false;
+    });
   }
 
   @override
@@ -41,7 +53,13 @@ class _AdminPanelPageState extends State<AdminPanelPage>
 
   @override
   Widget build(BuildContext context) {
-    if (!isAdmin) {
+    if (_checkingAdmin) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF060714),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (!_isAdmin) {
       return const Scaffold(
         backgroundColor: Color(0xFF060714),
         body: Center(

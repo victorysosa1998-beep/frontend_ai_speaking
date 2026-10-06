@@ -9,7 +9,6 @@ import 'dart:async';
 import 'package:confetti/confetti.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:loveable/RingingCallPage.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'call_screen.dart';
 import 'secrets.dart';
@@ -21,6 +20,153 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'HistoryPage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
+class RingingCallScreen extends StatelessWidget {
+  final String callerName;
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+
+  const RingingCallScreen({
+    super.key,
+    required this.callerName,
+    required this.onAccept,
+    required this.onDecline,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF060914),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              const SizedBox(height: 24),
+              Align(
+                alignment: Alignment.topRight,
+                child: IconButton(
+                  onPressed: onDecline,
+                  icon: const Icon(Icons.close, color: Colors.white70),
+                ),
+              ),
+              const Spacer(),
+              Container(
+                width: 140,
+                height: 140,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF7C3AED), Color(0xFF22D3EE)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.purpleAccent.withOpacity(0.35),
+                      blurRadius: 30,
+                      spreadRadius: 8,
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    callerName.trim().isNotEmpty
+                        ? callerName.trim()[0].toUpperCase()
+                        : 'C',
+                    style: const TextStyle(
+                      fontSize: 52,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                callerName,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 30,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Incoming call',
+                style: TextStyle(
+                  color: Colors.white60,
+                  fontSize: 16,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const Spacer(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _CallActionButton(
+                    icon: Icons.call_end_rounded,
+                    color: Colors.red,
+                    label: 'Decline',
+                    onPressed: onDecline,
+                  ),
+                  const SizedBox(width: 48),
+                  _CallActionButton(
+                    icon: Icons.call_rounded,
+                    color: Colors.green,
+                    label: 'Accept',
+                    onPressed: onAccept,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CallActionButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label;
+  final VoidCallback onPressed;
+
+  const _CallActionButton({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Material(
+          color: color,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onPressed,
+            child: SizedBox(
+              width: 76,
+              height: 76,
+              child: Icon(icon, color: Colors.white, size: 34),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 14),
+        ),
+      ],
+    );
+  }
+}
 
 class SympyChatPage extends StatefulWidget {
   final String voice;

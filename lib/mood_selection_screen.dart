@@ -5,15 +5,19 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:loveable/AboutPage.dart';
-import 'package:loveable/profilePage.dart';
-import 'package:loveable/secrets.dart';
-import 'package:loveable/settings_page.dart';
-import 'package:loveable/CreditService.dart';
-import 'package:loveable/Upgradepage.dart';
-import 'package:loveable/AdminPanelPage.dart';
+import 'package:ovie/AboutPage.dart';
+import 'package:ovie/profilePage.dart';
+import 'package:ovie/secrets.dart';
+import 'package:ovie/settings_page.dart';
+import 'package:ovie/Creditservice.dart';
+import 'package:ovie/UpgradePage.dart';
+import 'package:ovie/Adminpanelpage.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'SympyChatPage.dart';
+import 'OvieChatPage.dart';
+import 'fun_zone.dart';
+import 'group_call_page.dart';
+import 'app_brand.dart';
+import 'ovie_ui.dart';
 
 class MoodSelectionScreen extends StatefulWidget {
   final String imagePath;
@@ -56,144 +60,152 @@ class _MoodSelectionScreenState extends State<MoodSelectionScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: const Color(0xFF060714),
+      backgroundColor: OvieBrand.background,
       drawer: _buildCustomDrawer(context),
-      body: Stack(children: [
-        Container(
-            decoration: const BoxDecoration(
-                gradient: LinearGradient(
-          colors: [Color(0xFF060714), Color(0xFF0d0d2b), Color(0xFF060714)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ))),
-        Positioned(
-            top: -80,
-            right: -60,
-            child: Container(
-                width: 280,
-                height: 280,
-                decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.blueAccent.withOpacity(0.07)))),
-        Positioned(
-            bottom: 100,
-            left: -60,
-            child: Container(
-                width: 240,
-                height: 240,
-                decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.purpleAccent.withOpacity(0.06)))),
-        SafeArea(
+      body: OvieBackground(
+        child: SafeArea(
           child: Column(children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
               child: Row(children: [
-                IconButton(
-                  icon: const Icon(Icons.menu, color: Colors.white, size: 26),
-                  onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                OvieIconButton(
+                  icon: Icons.menu_rounded,
+                  onTap: () => _scaffoldKey.currentState?.openDrawer(),
                 ),
                 const Spacer(),
+                OvieIconButton(
+                  icon: Icons.auto_awesome_rounded,
+                  color: OvieBrand.royalGold,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const FunZonePage()),
+                  ),
+                ),
               ]),
             ),
             Expanded(
-              child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.04),
-                        border:
-                            Border.all(color: Colors.white.withOpacity(0.08)),
-                        boxShadow: [
-                          BoxShadow(
-                              color: Colors.blueAccent.withOpacity(0.35),
-                              blurRadius: 30,
-                              spreadRadius: 2)
-                        ],
-                      ),
-                      child: const Icon(Icons.auto_awesome,
-                          color: Colors.blueAccent, size: 32),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text("Sympy",
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 34,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5)),
-                    const SizedBox(height: 6),
-                    Text("Pick a vibe for $_aiName",
-                        style: TextStyle(
-                            color: Colors.white.withOpacity(0.4),
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14)),
-                    const SizedBox(height: 32),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Row(children: [
-                        _vibeChip("🤪 Chaotic", "Chaotic"),
-                        _vibeChip("🧠 Savage", "Savage"),
-                        _vibeChip("🧘 Calm", "Therapist"),
-                        _vibeChip("😎 Flirty", "Flirty"),
-                      ]),
-                    ),
-                    const SizedBox(height: 60),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 28),
-                      child: ScaleTransition(
-                        scale: Tween<double>(begin: 1.0, end: 1.04).animate(
-                            CurvedAnimation(
-                                parent: _pulseController,
-                                curve: Curves.easeInOut)),
-                        child: GestureDetector(
-                          onTap: () {
-                            HapticFeedback.lightImpact();
-                            Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) => SympyChatPage(
-                                          voice: widget.selectedVoice,
-                                          vibe: _selectedVibe,
-                                          imagePath: widget.imagePath,
-                                        )));
-                          },
-                          child: Container(
-                            width: double.infinity,
-                            height: 55,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(16),
-                              gradient: const LinearGradient(colors: [
-                                Colors.blueAccent,
-                                Colors.purpleAccent
-                              ]),
-                              boxShadow: [
-                                BoxShadow(
-                                    color: Colors.blueAccent.withOpacity(0.4),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 8))
-                              ],
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Chosen companion
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: OvieBrand.primary.withOpacity(0.4),
+                              blurRadius: 36,
+                              spreadRadius: 3,
                             ),
-                            child: const Center(
-                                child: Text("Get on Board",
-                                    style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 0.5))),
+                          ],
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: OvieBrand.royalGradient,
+                          ),
+                          child: ClipOval(
+                            child: Image.asset(
+                              widget.imagePath,
+                              width: 96,
+                              height: 96,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const OvieLogo(
+                                  size: 96, showWordmark: false),
+                            ),
                           ),
                         ),
                       ),
+                      const SizedBox(height: 18),
+                      Text(_aiName,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 32,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.3)),
+                      const SizedBox(height: 6),
+                      Text("How should $_aiName feel today?",
+                          style: TextStyle(
+                              color: Colors.white.withOpacity(0.5),
+                              fontWeight: FontWeight.w500,
+                              fontSize: 15)),
+                      const SizedBox(height: 28),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 10,
+                        runSpacing: 12,
+                        children: [
+                          _vibeChip("🤪 Chaotic", "Chaotic"),
+                          _vibeChip("🔥 Savage", "Savage"),
+                          _vibeChip("🧘 Calm", "Therapist"),
+                          _vibeChip("⚡ Hype", "Hype"),
+                          _vibeChip("🗣️ Gist", "Gist"),
+                          _vibeChip("📖 Story", "Story"),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 1.0, end: 1.03).animate(
+                    CurvedAnimation(
+                        parent: _pulseController, curve: Curves.easeInOut)),
+                child: OvieGradientButton(
+                  label: "START THE VIBE",
+                  icon: Icons.bolt_rounded,
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => OvieChatPage(
+                                  voice: widget.selectedVoice,
+                                  vibe: _selectedVibe,
+                                  imagePath: widget.imagePath,
+                                )));
+                  },
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+              child: SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => GroupCallPage(
+                        voice: widget.selectedVoice,
+                        vibe: _selectedVibe,
+                      ),
                     ),
-                    const SizedBox(height: 40),
-                  ]),
+                  ),
+                  icon: const Icon(Icons.groups_rounded),
+                  label: const Text('Play with friends',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.white.withOpacity(.04),
+                    side: BorderSide(color: Colors.white.withOpacity(.16)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18)),
+                  ),
+                ),
+              ),
             ),
           ]),
         ),
-      ]),
+      ),
     );
   }
 
@@ -201,33 +213,8 @@ class _MoodSelectionScreenState extends State<MoodSelectionScreen>
     return Drawer(
       width: MediaQuery.of(context).size.width,
       backgroundColor: Colors.transparent,
-      child: Stack(children: [
-        Container(
-            decoration: const BoxDecoration(
-                gradient: LinearGradient(
-          colors: [Color(0xFF060714), Color(0xFF0d0d2b), Color(0xFF060714)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ))),
-        Positioned(
-            top: -80,
-            left: -60,
-            child: Container(
-                width: 300,
-                height: 300,
-                decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.blueAccent.withOpacity(0.07)))),
-        Positioned(
-            bottom: 100,
-            right: -60,
-            child: Container(
-                width: 240,
-                height: 240,
-                decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.purpleAccent.withOpacity(0.06)))),
-        SafeArea(
+      child: OvieBackground(
+        child: SafeArea(
           child: StreamBuilder<User?>(
             stream: FirebaseAuth.instance.authStateChanges(),
             builder: (context, authSnapshot) {
@@ -305,6 +292,10 @@ class _MoodSelectionScreenState extends State<MoodSelectionScreen>
                   child: Divider(
                       color: Colors.white.withOpacity(0.07), height: 1),
                 ),
+                _drawerItem(Icons.auto_awesome_rounded, "Ovie Fun Zone", () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const FunZonePage()));
+                }, color: Colors.amberAccent),
                 _drawerItem(Icons.person_outline, "Profile", () {
                   Navigator.push(context,
                       MaterialPageRoute(builder: (_) => ProfilePage()));
@@ -314,32 +305,38 @@ class _MoodSelectionScreenState extends State<MoodSelectionScreen>
                   Navigator.push(context,
                       MaterialPageRoute(builder: (_) => SettingsPage()));
                 }),
-                _drawerItem(Icons.info_outline_rounded, "About Sympy", () {
+                _drawerItem(Icons.info_outline_rounded, "About Ovie", () {
                   Navigator.push(context,
                       MaterialPageRoute(builder: (_) => AboutPage()));
                 }),
                 _drawerItem(Icons.flag_outlined, "Report an issue",
                     () => openGmail(),
                     color: Colors.orangeAccent),
-                if (kAdminUids
-                    .contains(FirebaseAuth.instance.currentUser?.uid))
-                  _drawerItem(
-                    Icons.admin_panel_settings_outlined,
-                    "Admin Panel",
-                    () {
-                      Navigator.pop(context);
-                      Navigator.push(
+                FutureBuilder<bool>(
+                  future: checkIsAdmin(),
+                  builder: (context, snapshot) {
+                    if (snapshot.data != true) return const SizedBox.shrink();
+                    return _drawerItem(
+                      Icons.admin_panel_settings_outlined,
+                      "Admin Panel",
+                      () {
+                        Navigator.pop(context);
+                        Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (_) => const AdminPanelPage()));
-                    },
-                    color: Colors.amber,
-                  ),
+                            builder: (_) => const AdminPanelPage(),
+                          ),
+                        );
+                      },
+                      color: Colors.amber,
+                    );
+                  },
+                ),
               ]);
             },
           ),
         ),
-      ]),
+      ),
     );
   }
 
@@ -389,37 +386,29 @@ class _MoodSelectionScreenState extends State<MoodSelectionScreen>
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
-        margin: const EdgeInsets.only(right: 10),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
-          gradient: isSelected
-              ? const LinearGradient(
-                  colors: [Colors.blueAccent, Colors.purpleAccent])
-              : null,
+          gradient: isSelected ? OvieBrand.royalGradient : null,
           color: isSelected ? null : Colors.white.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(
               color: isSelected
                   ? Colors.transparent
-                  : Colors.white.withOpacity(0.08)),
+                  : Colors.white.withOpacity(0.1)),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                      color: Colors.blueAccent.withOpacity(0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4))
+                      color: OvieBrand.primary.withOpacity(0.4),
+                      blurRadius: 16,
+                      offset: const Offset(0, 5))
                 ]
-              : [],
+              : const [],
         ),
         child: Text(label,
             style: TextStyle(
-                color: isSelected
-                    ? Colors.white
-                    : Colors.white.withOpacity(0.5),
-                fontWeight: isSelected
-                    ? FontWeight.w600
-                    : FontWeight.normal)),
+                fontSize: 15,
+                color: isSelected ? Colors.white : Colors.white.withOpacity(0.6),
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500)),
       ),
     );
   }
@@ -548,10 +537,10 @@ class _CreditsCardState extends State<_CreditsCard> {
     final isLow = !_loading && !isEmpty && totalMinutes < 2;
 
     final Color accent = isEmpty
-        ? Colors.purpleAccent
+        ? OvieBrand.primary
         : isLow
             ? Colors.amber
-            : Colors.blueAccent;
+            : OvieBrand.secondary;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -570,8 +559,8 @@ class _CreditsCardState extends State<_CreditsCard> {
           decoration: BoxDecoration(
             gradient: isEmpty
                 ? LinearGradient(colors: [
-                    Colors.purpleAccent.withOpacity(0.15),
-                    Colors.blueAccent.withOpacity(0.1),
+                    OvieBrand.primary.withOpacity(0.15),
+                    OvieBrand.secondary.withOpacity(0.1),
                   ])
                 : null,
             color: isEmpty ? null : Colors.white.withOpacity(0.04),
@@ -634,12 +623,12 @@ class _CreditsCardState extends State<_CreditsCard> {
                   horizontal: 14, vertical: 7),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF7b2ff7), Color(0xFF4776E6)],
+                  colors: [Color(0xFF8B5CF6), Color(0xFF4F8CFF)],
                 ),
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF7b2ff7).withOpacity(0.3),
+                    color: OvieBrand.primary.withOpacity(0.3),
                     blurRadius: 10,
                     offset: const Offset(0, 3),
                   ),

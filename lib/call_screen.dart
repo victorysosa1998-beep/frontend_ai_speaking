@@ -10,7 +10,9 @@ import 'package:proximity_sensor/proximity_sensor.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'secrets.dart';
-import 'Upgradepage.dart';
+import 'UpgradePage.dart';
+import 'app_brand.dart';
+import 'ovie_ui.dart';
 
 class CallScreen extends StatefulWidget {
   final String voice;
@@ -41,7 +43,7 @@ class _CallScreenState extends State<CallScreen> {
   Timer? _statsTimer;
   Timer? _durationTimer;
   int _seconds = 0;
-  String _lastTranscript = "Connecting to sympy...";
+  String _lastTranscript = "Connecting to Ovie...";
   bool _exited = false;
   String? _activeEmoji;
   bool _hasError = false;
@@ -333,7 +335,7 @@ class _CallScreenState extends State<CallScreen> {
       setState(() {
         _hasError = false;
         _micDenied = false;
-        _lastTranscript = "Connecting to sympy...";
+        _lastTranscript = "Connecting to Ovie...";
       });
     }
 
@@ -716,84 +718,71 @@ class _CallScreenState extends State<CallScreen> {
   }
 
   Widget _buildErrorView() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF060714), Color(0xFF0d0d2b), Color(0xFF060714)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
+    return OvieBackground(
       child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.redAccent.withOpacity(0.1),
-                border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 36),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.redAccent.withOpacity(0.1),
+                  border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+                ),
+                child: Icon(
+                  _micDenied ? Icons.mic_off_rounded : Icons.error_outline_rounded,
+                  color: Colors.redAccent,
+                  size: 56,
+                ),
               ),
-              child: Icon(
-                _micDenied ? Icons.mic_off : Icons.error_outline,
-                color: Colors.redAccent,
-                size: 60,
+              const SizedBox(height: 24),
+              Text(
+                _micDenied ? "Microphone Access Denied" : "Connection Failed",
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800),
               ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              _micDenied ? "Microphone Access Denied" : "Connection Failed",
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: Text(
+              const SizedBox(height: 10),
+              Text(
                 _micDenied
-                    ? "Sympy needs your microphone to hear you. Please allow mic access in your phone's Settings, then try again."
+                    ? "Ovie needs your microphone to hear you. Please allow mic access in your phone's Settings, then try again."
                     : "Something went wrong. Please try again.",
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    color: Colors.white.withOpacity(0.4),
+                    color: Colors.white.withOpacity(0.5),
                     fontSize: 14,
                     height: 1.5),
               ),
-            ),
-            const SizedBox(height: 40),
-            GestureDetector(
-              onTap: () {
-                if (_micDenied) {
-                  openAppSettings();
-                } else {
-                  _connect();
-                }
-              },
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 36, vertical: 14),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(30),
-                  gradient: const LinearGradient(
-                      colors: [Colors.blueAccent, Colors.purpleAccent]),
-                ),
-                child: Text(
-                  _micDenied ? "Open Settings" : "Try Again",
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16),
-                ),
+              const SizedBox(height: 36),
+              OvieGradientButton(
+                label: _micDenied ? "Open Settings" : "Try Again",
+                icon: _micDenied ? Icons.settings_rounded : Icons.refresh_rounded,
+                onPressed: () {
+                  if (_micDenied) {
+                    openAppSettings();
+                  } else {
+                    _connect();
+                  }
+                },
               ),
-            ),
-          ],
+              const SizedBox(height: 14),
+              TextButton(
+                onPressed: () => Navigator.maybePop(context),
+                child: Text("Go back",
+                    style: TextStyle(color: Colors.white.withOpacity(0.45))),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+
 
   // ── Unified credit countdown widget ───────────────────────────
   Widget _buildCreditCountdown() {
@@ -827,7 +816,7 @@ class _CallScreenState extends State<CallScreen> {
         ? Colors.redAccent
         : isAmber
             ? Colors.amber
-            : Colors.blueAccent;
+            : OvieBrand.secondary;
     final double progress = _totalSecondsAtStart > 0
         ? (_totalSecondsLeft / _totalSecondsAtStart).clamp(0.0, 1.0)
         : 1.0;
@@ -887,404 +876,380 @@ class _CallScreenState extends State<CallScreen> {
 
     // Quota exhausted before connecting
     if (_quotaExhausted && !_isConnected) {
-      return Stack(
-        children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF060714), Color(0xFF0d0d2b), Color(0xFF060714)],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-            ),
-          ),
-          Positioned(
-              top: -60, left: -60,
-              child: Container(
-                  width: 260, height: 260,
+      return OvieBackground(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.redAccent.withOpacity(0.05)))),
-          Positioned(
-              bottom: 120, right: -40,
-              child: Container(
-                  width: 200, height: 200,
-                  decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.purpleAccent.withOpacity(0.05)))),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.04),
-                      border: Border.all(color: Colors.white.withOpacity(0.08)),
-                      boxShadow: [
-                        BoxShadow(
-                            color: Colors.purpleAccent.withOpacity(0.25),
-                            blurRadius: 40,
-                            spreadRadius: 4)
-                      ],
-                    ),
-                    child: const Icon(Icons.bolt_rounded,
-                        color: Colors.purpleAccent, size: 48),
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.04),
+                    border: Border.all(color: Colors.white.withOpacity(0.08)),
+                    boxShadow: [
+                      BoxShadow(
+                          color: OvieBrand.primary.withOpacity(0.3),
+                          blurRadius: 40,
+                          spreadRadius: 4)
+                    ],
                   ),
-                  const SizedBox(height: 28),
-                  const Text("No Credits Left!",
+                  child: const Icon(Icons.bolt_rounded,
+                      color: OvieBrand.royalGold, size: 48),
+                ),
+                const SizedBox(height: 28),
+                const Text("No Credits Left!",
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.3),
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 12),
+                Text(
+                    "Top up credits to keep calling — every pack gives you real call time! 🎉",
+                    style: TextStyle(
+                        color: Colors.white.withOpacity(0.55),
+                        fontSize: 15,
+                        height: 1.5),
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 32),
+                OvieGradientButton(
+                  label: "TOP UP CREDITS",
+                  icon: Icons.bolt_rounded,
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const UpgradePage()));
+                  },
+                ),
+                const SizedBox(height: 14),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text("Maybe later",
                       style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5),
-                      textAlign: TextAlign.center),
-                  const SizedBox(height: 12),
-                  Text(
-                      "Top up credits to keep calling — every pack gives you real call time! 🎉",
-                      style: TextStyle(
-                          color: Colors.white.withOpacity(0.5),
-                          fontSize: 15,
-                          height: 1.5),
-                      textAlign: TextAlign.center),
-                  const SizedBox(height: 32),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const UpgradePage()));
-                    },
-                    child: Container(
-                      width: double.infinity,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        gradient: const LinearGradient(
-                            colors: [Color(0xFF7b2ff7), Color(0xFF4776E6)]),
-                        boxShadow: [
-                          BoxShadow(
-                              color: Colors.purpleAccent.withOpacity(0.35),
-                              blurRadius: 20,
-                              offset: const Offset(0, 8))
-                        ],
-                      ),
-                      child: const Center(
-                        child: Text("⚡ Top Up Credits",
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Text("Maybe later",
-                        style: TextStyle(
-                            color: Colors.white.withOpacity(0.3),
-                            fontSize: 13,
-                            decoration: TextDecoration.underline,
-                            decorationColor: Colors.white.withOpacity(0.3))),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Stack(
-      children: [
-        Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF060714), Color(0xFF0d0d2b), Color(0xFF060714)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
+                          color: Colors.white.withOpacity(0.4),
+                          fontSize: 13)),
+                ),
+              ],
             ),
           ),
         ),
-        Positioned(
-            top: -60, left: -60,
-            child: Container(
-                width: 260, height: 260,
-                decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.blueAccent.withOpacity(0.07)))),
-        Positioned(
-            bottom: 120, right: -40,
-            child: Container(
-                width: 200, height: 200,
-                decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.purpleAccent.withOpacity(0.06)))),
+      );
+    }
 
-        Column(
-          children: [
-            // Extra top padding when network banner is visible so content
-            // doesn't slide under it
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              height: (_isConnected && _netQuality != _NetQuality.good) ? 42 : 16,
-            ),
+    final bool netBanner = _isConnected && _netQuality != _NetQuality.good;
+    final Color statusColor =
+        _isConnected ? const Color(0xFF4ADE80) : OvieBrand.secondary;
 
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const SizedBox(),
+    return Stack(
+      children: [
+        OvieBackground(
+          child: Column(
+            children: [
+              // Extra top padding when the network banner is visible so
+              // content doesn't slide under it.
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                height: netBanner ? 46 : 14,
+              ),
+
+              // Status pill
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: statusColor.withOpacity(0.4)),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: (_isConnected ? Colors.green : Colors.blueAccent)
-                          .withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                          color: (_isConnected
-                                  ? Colors.green
-                                  : Colors.blueAccent)
-                              .withOpacity(0.4)),
-                    ),
-                    child: Row(children: [
-                      Container(
-                          width: 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                              color: _isConnected
-                                  ? Colors.green
-                                  : Colors.blueAccent,
-                              shape: BoxShape.circle)),
-                      const SizedBox(width: 5),
-                      Text(
-                        _isConnected ? "Live" : "Connecting",
-                        style: TextStyle(
-                            color: _isConnected
-                                ? Colors.green
-                                : Colors.blueAccent,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold),
-                      ),
-                    ]),
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                          color: statusColor, shape: BoxShape.circle)),
+                  const SizedBox(width: 6),
+                  Text(
+                    _isConnected ? "Live" : "Connecting",
+                    style: TextStyle(
+                        color: statusColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.4),
                   ),
-                  const SizedBox(),
-                ],
+                ]),
               ),
-            ),
 
-            const SizedBox(height: 20),
+              const SizedBox(height: 14),
 
-            Text(
-              _isConnected ? _elapsedTime() : "Connecting...",
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w300,
-                  fontFamily: 'monospace',
-                  letterSpacing: 3),
-            ),
-            const SizedBox(height: 6),
-
-            _buildCreditCountdown(),
-
-            const SizedBox(height: 20),
-
-            Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.blueAccent.withOpacity(0.5),
-                      blurRadius: 40,
-                      spreadRadius: 6),
-                  BoxShadow(
-                      color: Colors.purpleAccent.withOpacity(0.3),
-                      blurRadius: 60,
-                      spreadRadius: 12),
-                ],
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(3),
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                      colors: [Colors.blueAccent, Colors.purpleAccent]),
-                ),
-                child: ClipOval(
-                  child: Image.asset(
-                    widget.imagePath,
-                    width: 110,
-                    height: 110,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 110,
-                      height: 110,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                            colors: [Colors.blueAccent, Colors.purpleAccent]),
-                      ),
-                      child: const Icon(Icons.person,
-                          color: Colors.white, size: 50),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            Text(aiName,
+              Text(
+                _isConnected ? _elapsedTime() : "Connecting...",
                 style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5)),
-            const SizedBox(height: 4),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 600),
-              child: Text(
-                _displayTexts[_textIndex],
-                key: ValueKey<int>(_textIndex),
-                style: TextStyle(
-                    color: Colors.white.withOpacity(0.4), fontSize: 13),
+                    fontSize: 30,
+                    fontWeight: FontWeight.w300,
+                    fontFamily: 'monospace',
+                    letterSpacing: 3),
               ),
-            ),
+              const SizedBox(height: 8),
 
-            const SizedBox(height: 20),
+              _buildCreditCountdown(),
 
-            WaveWidget(level: _aiLevel, color: Colors.blueAccent),
-
-            const SizedBox(height: 16),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: Colors.white.withOpacity(0.08)),
-                ),
-                child: Text(
-                  _lastTranscript,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      color: Colors.white.withOpacity(0.75),
-                      fontSize: 15,
-                      fontStyle: FontStyle.italic,
-                      height: 1.5),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            WaveWidget(
-                level: _isMuted ? 0 : _userLevel,
-                color: _isMuted ? Colors.redAccent : Colors.greenAccent),
-            const SizedBox(height: 4),
-            Text(
-              _isMuted ? "🔇 MIC MUTED" : "🎙 YOU",
-              style: TextStyle(
-                  color: _isMuted
-                      ? Colors.redAccent.withOpacity(0.8)
-                      : Colors.greenAccent.withOpacity(0.8),
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2),
-            ),
-
-            const Spacer(),
-
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(20),
-                border:
-                    Border.all(color: Colors.white.withOpacity(0.08)),
-              ),
-              child: Text("Vibe: ${widget.vibe}",
-                  style: TextStyle(
-                      color: Colors.white.withOpacity(0.3), fontSize: 12)),
-            ),
-
-            const SizedBox(height: 24),
-            Container(
-                height: 1,
-                color: Colors.white.withOpacity(0.06),
-                margin: const EdgeInsets.symmetric(horizontal: 24)),
-            const SizedBox(height: 28),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _callButton(
-                    icon: _isMuted ? Icons.mic_off : Icons.mic,
-                    label: _isMuted ? "Unmute" : "Mute",
-                    active: !_isMuted,
-                    onTap: () async {
-                      setState(() => _isMuted = !_isMuted);
-                      await _room!.localParticipant
-                          ?.setMicrophoneEnabled(!_isMuted);
-                    },
-                  ),
-                  GestureDetector(
-                    onTap: _safeExit,
-                    child: Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.redAccent,
-                        boxShadow: [
-                          BoxShadow(
-                              color: Colors.redAccent.withOpacity(0.5),
-                              blurRadius: 20,
-                              spreadRadius: 2)
-                        ],
-                      ),
-                      child: const Icon(Icons.call_end,
-                          color: Colors.white, size: 30),
+              // Scrollable middle so small phones never overflow and the
+              // controls below always stay visible.
+              Expanded(
+                child: Center(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                  color: OvieBrand.primary
+                                      .withOpacity(0.25 + 0.35 * _aiLevel.clamp(0.0, 1.0)),
+                                  blurRadius: 40 + 20 * _aiLevel.clamp(0.0, 1.0),
+                                  spreadRadius: 6),
+                              BoxShadow(
+                                  color: OvieBrand.secondary.withOpacity(0.25),
+                                  blurRadius: 60,
+                                  spreadRadius: 10),
+                            ],
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: OvieBrand.royalGradient,
+                            ),
+                            child: ClipOval(
+                              child: Image.asset(
+                                widget.imagePath,
+                                width: 120,
+                                height: 120,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  width: 120,
+                                  height: 120,
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: OvieBrand.royalGradient,
+                                  ),
+                                  child: const Icon(Icons.person,
+                                      color: Colors.white, size: 54),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(aiName,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 26,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.3)),
+                        const SizedBox(height: 4),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 600),
+                          child: Text(
+                            _displayTexts[_textIndex],
+                            key: ValueKey<int>(_textIndex),
+                            style: TextStyle(
+                                color: Colors.white.withOpacity(0.45),
+                                fontSize: 13),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        WaveWidget(level: _aiLevel, color: OvieBrand.secondary),
+                        const SizedBox(height: 14),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 18, vertical: 14),
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                  color: Colors.white.withOpacity(0.09)),
+                            ),
+                            child: Text(
+                              _lastTranscript,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  color: Colors.white.withOpacity(0.8),
+                                  fontSize: 15,
+                                  fontStyle: FontStyle.italic,
+                                  height: 1.5),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        WaveWidget(
+                            level: _isMuted ? 0 : _userLevel,
+                            color: _isMuted
+                                ? Colors.redAccent
+                                : const Color(0xFF4ADE80)),
+                        const SizedBox(height: 4),
+                        Text(
+                          _isMuted ? "🔇 MIC MUTED" : "🎙 YOU",
+                          style: TextStyle(
+                              color: _isMuted
+                                  ? Colors.redAccent.withOpacity(0.85)
+                                  : const Color(0xFF4ADE80).withOpacity(0.85),
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2),
+                        ),
+                      ],
                     ),
                   ),
-                  _callButton(
-                    icon: _isSpeakerOn ? Icons.volume_up : Icons.volume_down,
-                    label: _isSpeakerOn ? "Speaker" : "Earpiece",
-                    active: _isSpeakerOn,
-                    onTap: () async {
-                      setState(() => _isSpeakerOn = !_isSpeakerOn);
-                      await _room!.setSpeakerOn(_isSpeakerOn);
-                    },
-                  ),
+                ),
+              ),
+
+              // Vibe + reactions
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white.withOpacity(0.08)),
+                ),
+                child: Text("Vibe: ${widget.vibe}",
+                    style: TextStyle(
+                        color: Colors.white.withOpacity(0.4), fontSize: 12)),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _reactionButton('😂'),
+                  _reactionButton('🔥'),
+                  _reactionButton('😭'),
+                  _reactionButton('❤️'),
+                  _reactionButton('👀'),
+                  _reactionButton('👏🏽'),
                 ],
               ),
-            ),
+              const SizedBox(height: 22),
 
-            const SizedBox(height: 36),
-          ],
+              // Controls
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _callButton(
+                      icon: _isMuted ? Icons.mic_off : Icons.mic,
+                      label: _isMuted ? "Unmute" : "Mute",
+                      active: !_isMuted,
+                      onTap: () async {
+                        setState(() => _isMuted = !_isMuted);
+                        await _room!.localParticipant
+                            ?.setMicrophoneEnabled(!_isMuted);
+                      },
+                    ),
+                    GestureDetector(
+                      onTap: _safeExit,
+                      child: Container(
+                        width: 74,
+                        height: 74,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF5252), Color(0xFFC62828)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                                color: Colors.redAccent.withOpacity(0.5),
+                                blurRadius: 22,
+                                spreadRadius: 2)
+                          ],
+                        ),
+                        child: const Icon(Icons.call_end_rounded,
+                            color: Colors.white, size: 32),
+                      ),
+                    ),
+                    _callButton(
+                      icon: _isSpeakerOn ? Icons.volume_up : Icons.volume_down,
+                      label: _isSpeakerOn ? "Speaker" : "Earpiece",
+                      active: _isSpeakerOn,
+                      onTap: () async {
+                        setState(() => _isSpeakerOn = !_isSpeakerOn);
+                        await _room!.setSpeakerOn(_isSpeakerOn);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 30),
+            ],
+          ),
         ),
 
         if (_activeEmoji != null)
           Center(
-              child: Text(_activeEmoji!,
-                  style: const TextStyle(fontSize: 120))),
+              child: IgnorePointer(
+                  child: Text(_activeEmoji!,
+                      style: const TextStyle(fontSize: 120)))),
       ],
+    );
+  }
+
+
+  Future<void> _sendReaction(String emoji) async {
+    if (_room?.localParticipant == null) return;
+    HapticFeedback.selectionClick();
+    if (mounted) {
+      setState(() => _activeEmoji = emoji);
+      Timer(const Duration(seconds: 2), () {
+        if (mounted) setState(() => _activeEmoji = null);
+      });
+    }
+    try {
+      await _room!.localParticipant!.publishData(
+        utf8.encode('REACTION|$emoji'),
+        reliable: true,
+        topic: 'sympy-reaction',
+      );
+    } catch (e) {
+      debugPrint('[Call] Reaction send failed: $e');
+    }
+  }
+
+  Widget _reactionButton(String emoji) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 5),
+      child: GestureDetector(
+        onTap: () => _sendReaction(emoji),
+        child: Container(
+          width: 42,
+          height: 42,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(.06),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withOpacity(.1)),
+          ),
+          child: Text(emoji, style: const TextStyle(fontSize: 20)),
+        ),
+      ),
     );
   }
 
@@ -1296,29 +1261,33 @@ class _CallScreenState extends State<CallScreen> {
   }) {
     return GestureDetector(
       onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: active
-                  ? Colors.white.withOpacity(0.12)
-                  : Colors.white.withOpacity(0.05),
-              border: Border.all(
-                  color: active
-                      ? Colors.white.withOpacity(0.25)
-                      : Colors.white.withOpacity(0.08)),
+      child: SizedBox(
+        width: 72,
+        child: Column(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: active
+                    ? Colors.white.withOpacity(0.13)
+                    : Colors.redAccent.withOpacity(0.14),
+                border: Border.all(
+                    color: active
+                        ? Colors.white.withOpacity(0.25)
+                        : Colors.redAccent.withOpacity(0.4)),
+              ),
+              child: Icon(icon,
+                  color: active ? Colors.white : Colors.redAccent, size: 25),
             ),
-            child: Icon(icon,
-                color: active ? Colors.white : Colors.white38, size: 24),
-          ),
-          const SizedBox(height: 6),
-          Text(label,
-              style: TextStyle(
-                  color: Colors.white.withOpacity(0.4), fontSize: 11)),
-        ],
+            const SizedBox(height: 7),
+            Text(label,
+                style: TextStyle(
+                    color: Colors.white.withOpacity(0.5), fontSize: 11)),
+          ],
+        ),
       ),
     );
   }

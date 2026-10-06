@@ -139,7 +139,7 @@ class _SignupPageState extends State<SignupPage> {
                   const SizedBox(height: 20),
                   const Text("Create Account", style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
                   const SizedBox(height: 6),
-                  Text("Join Sympy today", style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 14)),
+                  Text("Join Ovie today", style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 14)),
                   const SizedBox(height: 36),
                   _inputField(controller: _nameController, hint: "Full Name", icon: Icons.badge_outlined),
                   const SizedBox(height: 14),

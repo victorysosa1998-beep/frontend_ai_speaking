@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ovie/account_deletion_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -132,7 +133,7 @@ class SettingsPage extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
-                                    "Sympy AI",
+                                    "Ovie AI",
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontSize: 16,
@@ -171,6 +172,19 @@ class SettingsPage extends StatelessWidget {
                         subtitle: "How we handle your data",
                         onTap: () => _launch(_privacyUrl),
                       ),
+                      _settingsTile(
+                        icon: Icons.delete_forever_outlined,
+                        iconColor: Colors.redAccent,
+                        title: "Delete Account",
+                        subtitle: "Permanently remove your Ovie account and data",
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AccountDeletionPage(),
+                          ),
+                        ),
+                        showExternalIcon: false,
+                      ),
 
                       // ── HELP section ──
                       _sectionLabel("HELP"),
@@ -203,7 +217,7 @@ class SettingsPage extends StatelessWidget {
                         icon: Icons.info_outline_rounded,
                         iconColor: Colors.white54,
                         title: "App Version",
-                        subtitle: "v1.1.0 (Build 1)",
+                        subtitle: "v1.3.0 (Build 5)",
                         onTap: null,
                         showExternalIcon: false,
                         showChevron: false,
